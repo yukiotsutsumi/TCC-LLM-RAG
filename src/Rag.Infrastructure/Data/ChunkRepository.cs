@@ -30,16 +30,16 @@ public class ChunkRepository(AppDbContext db) : IChunkRepository
         return results.Select(r => (
             new Chunk
             {
-                Id = r.id,
-                DocumentId = r.document_id,
-                ChunkIndex = r.chunk_index,
-                Content = r.content,
-                Embedding = r.embedding,
-                MetadataJson = r.metadata_json,
-                UmapX = r.umap_x,
-                UmapY = r.umap_y
+                Id = r.Id,
+                DocumentId = r.Document_id,
+                ChunkIndex = r.Chunk_index,
+                Content = r.Content,
+                Embedding = r.Embedding,
+                MetadataJson = r.Metadata_json,
+                UmapX = r.Umap_x,
+                UmapY = r.Umap_y
             },
-            r.title, r.source
+            r.Title, r.Source
         ));
     }
 

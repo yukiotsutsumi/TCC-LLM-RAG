@@ -1,0 +1,76 @@
+﻿@page "/chat"
+@rendermode InteractiveServer
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<h3>Chat (Demo)</h3>
+
+<div class="mb-3">
+    <label class="form-label">Pergunta</label>
+    <textarea class="form-control" rows="3" @bind="question"></textarea>
+</div>
+
+<div class="d-flex gap-2 mb-3">
+    <button class="btn btn-primary" @onclick="AskDemo" disabled="@isLoading">Enviar (ask-demo)</button>
+    <button class="btn btn-secondary" @onclick="Ping" disabled="@isLoading">Ping API</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(status))
+{
+    <div class="alert alert-info">@status</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(answer))
+{
+    <div class="card mt-3">
+        <div class="card-header">Resposta</div>
+        <div class="card-body">
+            <pre class="mb-0">@answer</pre>
+        </div>
+    </div>
+}
+
+@code {
+    private string question = "";
+    private string? answer;
+    private string? status;
+    private bool isLoading;
+
+    private async Task Ping()
+    {
+        try
+        {
+            isLoading = true; status = "Chamando /api/ping...";
+            var res = await Http.GetFromJsonAsync<PingRes>("/api/ping");
+            status = res is not null ? $"Ping ok: {res.ok} - {res.time:o}" : "Ping falhou";
+        }
+        catch (Exception ex)
+        {
+            status = $"Erro: {ex.Message}";
+        }
+        finally { isLoading = false; }
+    }
+
+    private async Task AskDemo()
+    {
+        try
+        {
+            isLoading = true; status = "Chamando /api/ask-demo...";
+            var req = new AskRequest { Question = question, K = 5, MaxContextTokens = 2000 };
+            var resp = await (await Http.PostAsJsonAsync("/api/ask-demo", req))
+                .Content.ReadFromJsonAsync<AskResponse>();
+            answer = resp?.Answer ?? "(sem resposta)";
+            status = "OK";
+        }
+        catch (Exception ex)
+        {
+            status = $"Erro: {ex.Message}";
+        }
+        finally { isLoading = false; }
+    }
+
+    private class AskRequest { public string Question { get; set; } = ""; public int K { get; set; } = 6; public int MaxContextTokens { get; set; } = 3000; }
+    private class AskResponse { public string Answer { get; set; } = ""; public List<SourceRef> Sources { get; set; } = new(); public int TookMs { get; set; } }
+    private class SourceRef { public Guid ChunkId { get; set; } public string Title { get; set; } = ""; public string Source { get; set; } = ""; public string Snippet { get; set; } = ""; }
+    private class PingRes { public bool ok { get; set; } public DateTime time { get; set; } }
+}
