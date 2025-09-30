@@ -11,11 +11,27 @@ public class RagService(IOllamaClient ollama, IChunkRepository chunks, Microsoft
 
     public async Task<AskResponse> AskAsync(AskRequest request)
     {
+        // 1) Embed da pergunta
         var qEmb = await ollama.EmbedAsync(_opt.EmbeddingModel, request.Question);
-        var top = await chunks.QueryKnnAsync(qEmb, request.K);
 
-        var ctx = string.Join("\n", top.Select(t => $"- [{t.DocTitle ?? "Doc"}] {Trim(t.Chunk.Content, 600)}"));
-        var prompt = $@"Você é um assistente técnico em Segurança da Informação, responda em PT-BR.
+        // 2) Busca vetorial
+        var top = (await chunks.QueryKnnAsync(qEmb, request.K)).ToList();
+
+        // 3) Monta contexto
+        string ctx;
+        if (top.Count == 0)
+        {
+            ctx = "(sem resultados relacionados)";
+        }
+        else
+        {
+            ctx = string.Join("\n", top.Select(t =>
+                $"- [{t.DocumentTitle ?? "Doc"}] {Trim(t.Chunk.Content, 600)}"));
+        }
+
+        // 4) Prompt
+        var prompt = $@"
+            Você é um assistente técnico em Segurança da Informação, responda em PT-BR.
             Use apenas o contexto. Se não houver informação suficiente, diga isso e não invente.
             Cite as fontes entre colchetes no final.
 
@@ -25,12 +41,15 @@ public class RagService(IOllamaClient ollama, IChunkRepository chunks, Microsoft
             Pergunta:
             {request.Question}";
 
+        // 5) Geração
         var answer = await ollama.GenerateAsync(_opt.GenerationModel, prompt);
+
+        // 6) Fontes
         var sources = top.Select(t => new SourceRef
         {
             ChunkId = t.Chunk.Id,
-            Title = t.DocTitle ?? "Doc",
-            Source = t.DocSource ?? t.Chunk.DocumentId.ToString(),
+            Title = t.DocumentTitle ?? "Doc",
+            Source = t.DocumentSource ?? t.Chunk.DocumentId.ToString(),
             Snippet = Trim(t.Chunk.Content, 300)
         }).ToList();
 

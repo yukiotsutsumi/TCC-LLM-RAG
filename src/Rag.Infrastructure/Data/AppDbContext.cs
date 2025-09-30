@@ -16,34 +16,63 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<Document>(e =>
         {
-            e.ToTable("documents");
+            e.ToTable("Documents");
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasColumnName("id");
-            e.Property(x => x.Title).HasColumnName("title");
-            e.Property(x => x.Source).HasColumnName("source");
-            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.Id);
+            e.Property(x => x.Title);
+            e.Property(x => x.Source);
+            e.Property(x => x.CreatedAt);
             e.HasMany(x => x.Chunks).WithOne(c => c.Document!).HasForeignKey(c => c.DocumentId);
         });
 
         modelBuilder.Entity<Chunk>(e =>
         {
-            e.ToTable("chunks");
+            e.ToTable("Chunks");
             e.HasKey(x => x.Id);
-            e.Property(x => x.Id).HasColumnName("id");
-            e.Property(x => x.DocumentId).HasColumnName("document_id");
-            e.Property(x => x.ChunkIndex).HasColumnName("chunk_index");
-            e.Property(x => x.Content).HasColumnName("content");
+            e.Property(x => x.Id);
+            e.Property(x => x.DocumentId);
+            e.Property(x => x.ChunkIndex);
+            e.Property(x => x.Content);
 
             e.Property(x => x.Embedding)
-                .HasColumnName("embedding")
-                .HasColumnType("vector(768)");
+            .HasColumnType("vector(1024)")
+            .IsRequired();
 
-            e.Property(x => x.MetadataJson)
-                .HasColumnName("metadata_json")
-                .HasColumnType("jsonb");
+            e.Property(x => x.MetadataJson).HasColumnType("jsonb");
 
-            e.Property(x => x.UmapX).HasColumnName("umap_x");
-            e.Property(x => x.UmapY).HasColumnName("umap_y");
+            e.Property(x => x.UmapX);
+            e.Property(x => x.UmapY);
+        });
+
+        // Índice HNSW para otimizar buscas KNN
+        modelBuilder.Entity<Chunk>()
+            .HasIndex(c => c.Embedding)
+            .HasMethod("hnsw")
+            .HasOperators("vector_cosine_ops")
+            .HasStorageParameter("m", 16)
+            .HasStorageParameter("ef_construction", 64);
+
+        // Configuração para KnnRow (usado em consultas SQL raw)
+        modelBuilder.Entity<KnnRow>(e =>
+        {
+            e.HasNoKey();
+            e.Property(x => x.Embedding).HasColumnType("vector(1024)");
+        });
+
+        modelBuilder.Entity<KnnRow>(e =>
+        {
+            e.HasNoKey();
+            e.ToView(null);
+            e.Property(x => x.Id);
+            e.Property(x => x.DocumentId);
+            e.Property(x => x.ChunkIndex);
+            e.Property(x => x.Content);
+            e.Property(x => x.Embedding).HasColumnType("vector(1024)");
+            e.Property(x => x.MetadataJson);
+            e.Property(x => x.UmapX);
+            e.Property(x => x.UmapY);
+            e.Property(x => x.Title);
+            e.Property(x => x.Source);
         });
     }
 }

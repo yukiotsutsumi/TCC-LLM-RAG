@@ -1,0 +1,66 @@
+﻿@page "/ingest"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@rendermode InteractiveServer
+
+<h3>Ingestão de Texto</h3>
+
+<div class="mb-3">
+    <label class="form-label">Título</label>
+    <input class="form-control" @bind="title" />
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Fonte (URL, arquivo, etc)</label>
+    <input class="form-control" @bind="source" />
+</div>
+
+<div class="mb-3">
+    <label class="form-label">Texto</label>
+    <textarea class="form-control" rows="10" @bind="text"></textarea>
+</div>
+
+<button type="button" class="btn btn-primary" @onclick="IngestAsync" disabled="@isLoading">Ingerir</button>
+
+@if (!string.IsNullOrWhiteSpace(status))
+{
+    <div class="alert alert-info mt-3">@status</div>
+}
+
+@if (result is not null)
+{
+    <div class="alert alert-success mt-3">
+        DocumentId: @result.DocumentId — Chunks: @result.ChunksSaved
+    </div>
+}
+
+@code {
+    private string title = "";
+    private string source = "";
+    private string text = "";
+    private bool isLoading;
+    private string? status;
+    private IngestTextResponse? result;
+
+    private async Task IngestAsync()
+    {
+        try
+        {
+            isLoading = true;
+            status = "Enviando para ingestão...";
+            IngestTextRequest? req = new IngestTextRequest(title, source, text);
+            HttpResponseMessage? httpRes = await Http.PostAsJsonAsync("/api/ingest-text", req);
+            httpRes.EnsureSuccessStatusCode();
+            result = await httpRes.Content.ReadFromJsonAsync<IngestTextResponse>();
+            status = "OK";
+        }
+        catch (Exception ex)
+        {
+            status = $"Erro: {ex.Message}";
+        }
+        finally { isLoading = false; }
+    }
+
+    public record IngestTextRequest(string Title, string Source, string Text);
+    public record IngestTextResponse(Guid DocumentId, int ChunksSaved);
+}
