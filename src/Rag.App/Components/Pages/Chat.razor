@@ -86,22 +86,23 @@
         await CallAsk("/api/ask");
     }
 
-    private async Task CallAsk(string url)
-    {
-        try
-        {
-            isLoading = true; status = $"Chamando {url}...";
-            var req = new AskRequest { Question = question, K = 5, MaxContextTokens = 2000 };
-            var httpRes = await Http.PostAsJsonAsync(url, req);
-            httpRes.EnsureSuccessStatusCode();
-            resp = await httpRes.Content.ReadFromJsonAsync<AskResponse>();
-            status = "OK";
-        }
-        catch (Exception ex)
-        {
-            status = $"Erro: {ex.Message}";
-        }
-        finally { isLoading = false; }
+    private async Task CallAsk(string url)  
+    {  
+        try  
+        {  
+            isLoading = true; status = $"Chamando {url}...";  
+            Http.Timeout = TimeSpan.FromMinutes(3);
+            var req = new AskRequest { Question = question, K = 5, MaxContextTokens = 2000 };  
+            using var httpRes = await Http.PostAsJsonAsync(url, req);  
+            httpRes.EnsureSuccessStatusCode();  
+            resp = await httpRes.Content.ReadFromJsonAsync<AskResponse>();  
+            status = "OK";  
+        }  
+        catch (Exception ex)  
+        {  
+            status = $"Erro: {ex.Message}";  
+        }  
+        finally { isLoading = false; }  
     }
 
     private class PingRes { public bool ok { get; set; } public DateTime time { get; set; } }

@@ -15,6 +15,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddRequestTimeouts();
+
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("Postgres"), o => o.UseVector()));
 
@@ -24,6 +26,7 @@ builder.Services.AddHttpClient<IOllamaClient, OllamaClient>((sp, client) =>
 {
     var opt = sp.GetRequiredService<IOptions<OllamaOptions>>().Value;
     client.BaseAddress = new Uri(opt.BaseUrl ?? "http://localhost:11434");
+    client.Timeout = TimeSpan.FromMinutes(5);
 });
 
 builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
@@ -49,6 +52,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
+app.UseRequestTimeouts();
 
 app.MapRazorComponents<App>()
    .AddInteractiveServerRenderMode();
