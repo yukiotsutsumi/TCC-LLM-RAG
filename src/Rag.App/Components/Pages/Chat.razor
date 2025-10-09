@@ -91,7 +91,7 @@
         try  
         {  
             isLoading = true; status = $"Chamando {url}...";  
-            Http.Timeout = TimeSpan.FromMinutes(3);
+            Http.Timeout = TimeSpan.FromMinutes(10);
             var req = new AskRequest { Question = question, K = 5, MaxContextTokens = 2000 };  
             using var httpRes = await Http.PostAsJsonAsync(url, req);  
             httpRes.EnsureSuccessStatusCode();  

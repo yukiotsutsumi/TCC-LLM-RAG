@@ -26,7 +26,7 @@ builder.Services.AddHttpClient<IOllamaClient, OllamaClient>((sp, client) =>
 {
     var opt = sp.GetRequiredService<IOptions<OllamaOptions>>().Value;
     client.BaseAddress = new Uri(opt.BaseUrl ?? "http://localhost:11434");
-    client.Timeout = TimeSpan.FromMinutes(5);
+    client.Timeout = TimeSpan.FromMinutes(10);
 });
 
 builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();

@@ -16,7 +16,7 @@ public static class AskEndpoints
             var res = await rag.AskAsync(req);
             res.TookMs = (int)sw.ElapsedMilliseconds;
             return Results.Ok(res);
-        }).WithRequestTimeout(TimeSpan.FromMinutes(5));
+        }).WithRequestTimeout(TimeSpan.FromMinutes(10));
 
         group.MapPost("/ask-demo", (AskRequest req) =>
         {
