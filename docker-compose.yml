@@ -45,6 +45,90 @@ services:
       timeout: 5s
       retries: 30
 
+  rag-app:
+    build:
+      context: .
+      dockerfile: src/Rag.App/Dockerfile
+    container_name: rag-app
+    ports:
+      - "8081:8080" # App acessível em http://localhost:8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    # Sem envs de configuração: o Program.cs remapeia localhost->postgres/ollama quando em container
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: rag-prometheus
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "9090:9090"
+    depends_on:
+      - rag-app
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: rag-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./observability/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: rag-loki
+    command: -config.file=/etc/loki/config/loki-config.yml
+    volumes:
+      - ./observability/loki/loki-config.yml:/etc/loki/config/loki-config.yml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+
+  promtail:
+      image: grafana/promtail:2.9.3
+      container_name: rag-promtail
+      command: -config.file=/etc/promtail/config/promtail-config.yml
+      volumes:
+        - /var/lib/docker/containers:/var/lib/docker/containers:ro
+        - ./observability/promtail/promtail-config.yml:/etc/promtail/config/promtail-config.yml:ro
+      depends_on:
+        - loki
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    container_name: rag-tempo
+    command: [ "-config.file=/etc/tempo/config.yaml" ]
+    volumes:
+      - ./observability/tempo/config.yaml:/etc/tempo/config.yaml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"   # Tempo query para Grafana
+      - "4317:4317"   # OTLP gRPC (traces do app)
+      - "4318:4318"   # OTLP HTTP (opcional)
+
 volumes:
   pgdata:
   ollama_models:
+  prom_data:
+  grafana_data:
+  loki_data:
+  tempo_data:
