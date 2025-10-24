@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Rag.Infrastructure.Data;
 
-namespace Rag.App.Health;
+namespace Rag.App.Endpoints.HealthCheck;
 
 public sealed class PostgresHealthCheck(IDbContextFactory<AppDbContext> dbContextFactory) : IHealthCheck
 {

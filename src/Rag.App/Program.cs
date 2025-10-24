@@ -2,12 +2,12 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Rag.App.Components;
 using Rag.App.Endpoints;
 using Rag.App.Endpoints.HealthCheck;
-using Rag.App.Health;
 using Rag.Core.Interfaces;
 using Rag.Core.Interfaces.Repositories;
 using Rag.Core.Interfaces.Services;
@@ -24,14 +24,20 @@ static bool RunningInContainer()
 
 if (!builder.Environment.IsDevelopment() && RunningInContainer())
 {
-    var cfg = new ConfigurationBuilder().AddConfiguration(builder.Configuration).Build();
+    var cfg = new ConfigurationBuilder()
+        .AddConfiguration(builder.Configuration)
+        .Build();
 
     var conn = cfg.GetConnectionString("Postgres")
-               ?? "Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=ragdb";
+        ?? throw new InvalidOperationException("ConnectionStrings:Postgres não configurada.");
+
+    var ollamaBase = cfg.GetRequiredSection("Ollama").GetValue<string>("BaseUrl")
+        ?? throw new InvalidOperationException("Ollama:BaseUrl não configurado.");
+
     conn = conn.Replace("Host=localhost", "Host=postgres")
                .Replace("Host=127.0.0.1", "Host=postgres");
 
-    var ollamaBase = (cfg["Ollama:BaseUrl"] ?? "http://localhost:11434")
+    ollamaBase = ollamaBase
         .Replace("http://localhost:11434", "http://ollama:11434")
         .Replace("http://127.0.0.1:11434", "http://ollama:11434");
 
@@ -44,6 +50,11 @@ if (!builder.Environment.IsDevelopment() && RunningInContainer())
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("rag-app", serviceVersion: "1.0.0"))
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddPrometheusExporter())
     .WithTracing(t => t
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
@@ -61,7 +72,6 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
     var cs = builder.Configuration.GetConnectionString("Postgres");
     opt.UseNpgsql(cs, o => o.UseVector());
 });
-builder.Services.AddDbContextFactory<AppDbContext>();
 
 builder.Services.Configure<OllamaOptions>(builder.Configuration.GetSection("Ollama"));
 
@@ -86,9 +96,9 @@ builder.Services.AddScoped(sp =>
 });
 
 builder.Services.AddHealthChecks()
-    .AddCheck<PostgresHealthCheck>("postgres", failureStatus: HealthStatus.Unhealthy, tags: new[] { "db", "postgres" })
-    .AddCheck<OllamaHealthCheck>("ollama", failureStatus: HealthStatus.Unhealthy, tags: new[] { "llm", "ollama" })
-    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "self" });
+    .AddCheck<PostgresHealthCheck>("postgres", failureStatus: HealthStatus.Unhealthy, tags: ["db", "postgres"])
+    .AddCheck<OllamaHealthCheck>("ollama", failureStatus: HealthStatus.Unhealthy, tags: ["llm", "ollama"])
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["self"]);
 
 var app = builder.Build();
 
