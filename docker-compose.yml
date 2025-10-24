@@ -40,10 +40,11 @@ services:
       - OLLAMA_KEEP_ALIVE=5m
     command: ["serve"]
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:11434/"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:11434/api/version >/dev/null 2>&1 || curl -fsS http://localhost:11434/api/version >/dev/null 2>&1 || (exec 3<>/dev/tcp/localhost/11434)"]
       interval: 5s
       timeout: 5s
       retries: 30
+      start_period: 15s
 
   rag-app:
     build:
@@ -55,9 +56,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      ollama:
-        condition: service_healthy
-    # Sem envs de configuração: o Program.cs remapeia localhost->postgres/ollama quando em container
 
   prometheus:
     image: prom/prometheus:latest
