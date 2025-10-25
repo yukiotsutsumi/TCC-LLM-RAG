@@ -65,9 +65,16 @@
     {
         try
         {
-            isLoading = true; status = "Chamando /api/ping...";
-            var r = await Http.GetFromJsonAsync<PingRes>("/api/ping");
-            status = r is not null ? $"Ping ok: {r.ok} - {r.time:o}" : "Ping falhou";
+            isLoading = true; status = "Chamando /health/live...";
+            using var httpRes = await Http.GetAsync("/health/ready");
+            if (httpRes.IsSuccessStatusCode)
+            {
+                status = "Ping ok (live)";
+            }
+            else
+            {
+                status = $"Ping falhou (status {(int)httpRes.StatusCode})";
+            }
         }
         catch (Exception ex)
         {

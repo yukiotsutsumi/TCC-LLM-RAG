@@ -49,7 +49,7 @@ services:
   rag-app:
     build:
       context: .
-    dockerfile: src/Rag.App/Dockerfile
+      dockerfile: src/Rag.App/Dockerfile
     container_name: rag-app
     depends_on:
       postgres:
