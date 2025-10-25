@@ -2,21 +2,23 @@
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Rag.Infrastructure.Data;
 
-namespace Rag.App.Endpoints.HealthCheck;
-
-public sealed class PostgresHealthCheck(IDbContextFactory<AppDbContext> dbContextFactory) : IHealthCheck
+namespace Rag.App.Endpoints.HealthCheck
 {
-    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
+    public sealed class PostgresHealthCheck(AppDbContext db) : IHealthCheck
     {
-        try
+        public async Task<HealthCheckResult> CheckHealthAsync(
+            HealthCheckContext context,
+            CancellationToken cancellationToken = default)
         {
-            await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
-            await db.Database.ExecuteSqlRawAsync("SELECT 1;", cancellationToken);
-            return HealthCheckResult.Healthy();
-        }
-        catch (Exception ex)
-        {
-            return HealthCheckResult.Unhealthy(ex.Message, ex);
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync("SELECT 1;", cancellationToken);
+                return HealthCheckResult.Healthy("Postgres OK");
+            }
+            catch (Exception ex)
+            {
+                return HealthCheckResult.Unhealthy("Postgres indisponível", ex);
+            }
         }
     }
 }
