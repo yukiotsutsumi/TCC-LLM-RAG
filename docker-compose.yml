@@ -49,13 +49,13 @@ services:
   rag-app:
     build:
       context: .
-      dockerfile: src/Rag.App/Dockerfile
+    dockerfile: src/Rag.App/Dockerfile
     container_name: rag-app
-    ports:
-      - "8081:8080" # App acessível em http://localhost:8081
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - aspnet_keys:/root/.aspnet/DataProtection-Keys
 
   prometheus:
     image: prom/prometheus:latest
@@ -102,14 +102,14 @@ services:
       - "3100:3100"
 
   promtail:
-      image: grafana/promtail:2.9.3
-      container_name: rag-promtail
-      command: -config.file=/etc/promtail/config/promtail-config.yml
-      volumes:
-        - /var/lib/docker/containers:/var/lib/docker/containers:ro
-        - ./observability/promtail/promtail-config.yml:/etc/promtail/config/promtail-config.yml:ro
-      depends_on:
-        - loki
+    image: grafana/promtail:2.9.3
+    container_name: rag-promtail
+    command: -config.file=/etc/promtail/config/promtail-config.yml
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - ./observability/promtail/promtail-config.yml:/etc/promtail/config/promtail-config.yml:ro
+    depends_on:
+      - loki
 
   tempo:
     image: grafana/tempo:2.5.0
@@ -119,9 +119,22 @@ services:
       - ./observability/tempo/config.yml:/etc/tempo/config.yml:ro
       - tempo_data:/var/tempo
     ports:
-      - "3200:3200"   # Tempo query para Grafana
-      - "4317:4317"   # OTLP gRPC (traces do app)
-      - "4318:4318"   # OTLP HTTP (opcional)
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+
+  reverse-proxy:
+    image: nginx:1.27-alpine
+    container_name: rag-nginx
+    depends_on:
+      rag-app:
+        condition: service_started
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./reverse-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./reverse-proxy/certs:/etc/nginx/certs:ro
 
 volumes:
   pgdata:
@@ -130,3 +143,4 @@ volumes:
   grafana_data:
   loki_data:
   tempo_data:
+  aspnet_keys:
