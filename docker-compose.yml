@@ -16,7 +16,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-
   adminer:
     image: adminer:latest
     container_name: rag-adminer
@@ -27,7 +26,6 @@ services:
       ADMINER_DEFAULT_SERVER: postgres
     ports:
       - "8080:8080"
-
   ollama:
     image: ollama/ollama:latest
     container_name: rag-ollama
@@ -37,15 +35,52 @@ services:
     volumes:
       - ollama_models:/root/.ollama
     environment:
+      - OMP_NUM_THREADS=6
+      - OPENBLAS_NUM_THREADS=6
+      - MKL_NUM_THREADS=6
       - OLLAMA_KEEP_ALIVE=5m
     command: ["serve"]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:11434/api/version >/dev/null 2>&1 || curl -fsS http://localhost:11434/api/version >/dev/null 2>&1 || (exec 3<>/dev/tcp/localhost/11434)"]
-      interval: 5s
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
       timeout: 5s
-      retries: 30
-      start_period: 15s
-
+      retries: 10
+      start_period: 30s
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: rag-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Verificando modelos necessários..."
+        
+        # Baixar modelo de chat
+        if ollama list | grep -q "qwen2.5:3b"; then
+          echo "Modelo qwen2.5:3b já baixado!"
+        else
+          echo "Baixando modelo qwen2.5:3b..."
+          ollama pull qwen2.5:3b
+          echo "Modelo qwen2.5:3b baixado com sucesso!"
+        fi
+        
+        # Baixar modelo de embedding
+        if ollama list | grep -q "mxbai-embed-large"; then
+          echo "Modelo mxbai-embed-large já baixado!"
+        else
+          echo "Baixando modelo mxbai-embed-large..."
+          ollama pull mxbai-embed-large
+          echo "Modelo mxbai-embed-large baixado com sucesso!"
+        fi
+        
+        echo "Todos os modelos estão prontos!"
+    restart: "no"
   rag-app:
     build:
       context: .
@@ -54,9 +89,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
     volumes:
       - aspnet_keys:/root/.aspnet/DataProtection-Keys
-
   prometheus:
     image: prom/prometheus:latest
     container_name: rag-prometheus
@@ -71,7 +107,6 @@ services:
       - "9090:9090"
     depends_on:
       - rag-app
-
   grafana:
     image: grafana/grafana:latest
     container_name: rag-grafana
@@ -90,7 +125,6 @@ services:
       - prometheus
       - loki
       - tempo
-
   loki:
     image: grafana/loki:2.9.3
     container_name: rag-loki
@@ -100,7 +134,6 @@ services:
       - loki_data:/loki
     ports:
       - "3100:3100"
-
   promtail:
     image: grafana/promtail:2.9.3
     container_name: rag-promtail
@@ -110,7 +143,6 @@ services:
       - ./observability/promtail/promtail-config.yml:/etc/promtail/config/promtail-config.yml:ro
     depends_on:
       - loki
-
   tempo:
     image: grafana/tempo:2.5.0
     container_name: rag-tempo
@@ -122,7 +154,6 @@ services:
       - "3200:3200"
       - "4317:4317"
       - "4318:4318"
-
   reverse-proxy:
     image: nginx:1.27-alpine
     container_name: rag-nginx
@@ -135,7 +166,6 @@ services:
     volumes:
       - ./reverse-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./reverse-proxy/certs:/etc/nginx/certs:ro
-
 volumes:
   pgdata:
   ollama_models:

@@ -37,7 +37,6 @@ namespace Rag.Infrastructure.Llm
                 throw new HttpRequestException($"Embeddings {res.StatusCode}: {body}");
             }
 
-            // Tenta formato single: { "embedding": [...] }
             try
             {
                 using var doc = JsonDocument.Parse(body);
@@ -120,7 +119,6 @@ namespace Rag.Infrastructure.Llm
             throw new InvalidOperationException("Resposta de geração sem campo 'response'.");
         }
 
-        // Versão alternativa com streaming (caso queira testar latência percebida)
         public async Task<string> GenerateStreamAggregatedAsync(string model, string prompt, CancellationToken ct = default)
         {
             var payload = new
@@ -148,7 +146,7 @@ namespace Rag.Infrastructure.Llm
             while (!reader.EndOfStream)
             {
                 ct.ThrowIfCancellationRequested();
-                var line = await reader.ReadLineAsync();
+                var line = await reader.ReadLineAsync(ct);
                 if (string.IsNullOrWhiteSpace(line)) continue;
 
                 try
@@ -161,7 +159,6 @@ namespace Rag.Infrastructure.Llm
                 }
                 catch
                 {
-                    // linhas podem conter mensagens de controle; ignore parse inválido
                 }
             }
 

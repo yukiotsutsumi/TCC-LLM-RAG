@@ -1,7 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using Rag.App.Components;
 using Rag.App.Endpoints;
 using Rag.App.Endpoints.HealthCheck;
 using Rag.App.Extensions;
+using Rag.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +15,12 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddRequestTimeouts();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 app.UseForwardedHeadersForProxy();
 app.UseEnvironmentSpecificMiddleware();

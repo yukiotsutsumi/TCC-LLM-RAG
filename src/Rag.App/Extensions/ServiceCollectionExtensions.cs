@@ -38,10 +38,31 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRagService, RagService>();
         services.AddScoped<IIngestionService, IngestionService>();
 
-        services.AddScoped(sp =>
+        _ = services.AddScoped(sp =>
         {
             var nav = sp.GetRequiredService<NavigationManager>();
-            return new HttpClient { BaseAddress = new Uri(nav.BaseUri) };
+            var navBase = nav.BaseUri?.TrimEnd('/') ?? "";
+
+            bool runningInContainer = false;
+            try { runningInContainer = System.IO.File.Exists("/.dockerenv"); } catch { }
+
+            string finalBase;
+
+            if (runningInContainer)
+            {
+                finalBase = "http://localhost:8080/";
+            }
+            else
+            {
+                finalBase = string.IsNullOrWhiteSpace(navBase) ? "http://localhost:8080/" : (navBase.EndsWith('/') ? navBase : navBase + "/");
+            }
+
+            if (!Uri.TryCreate(finalBase, UriKind.Absolute, out var baseUri))
+            {
+                baseUri = new Uri("http://localhost:8080/");
+            }
+
+            return new HttpClient { BaseAddress = baseUri };
         });
 
         return services;
