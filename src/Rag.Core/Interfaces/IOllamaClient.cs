@@ -1,4 +1,5 @@
 ﻿using Pgvector;
+using System.Runtime.CompilerServices;
 
 namespace Rag.Core.Interfaces
 {
@@ -6,6 +7,6 @@ namespace Rag.Core.Interfaces
     {
         Task<Vector> EmbedAsync(string model, string text, CancellationToken ct = default);
         Task<string> GenerateAsync(string model, string prompt, CancellationToken ct = default);
-        Task<string> GenerateStreamAggregatedAsync(string model, string prompt, CancellationToken ct = default);
+        IAsyncEnumerable<string> GenerateStreamAsync(string model, string prompt, CancellationToken ct = default);
     }
 }

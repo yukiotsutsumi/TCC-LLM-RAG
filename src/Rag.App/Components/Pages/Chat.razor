@@ -1,20 +1,15 @@
 ﻿@page "/chat"
 @rendermode InteractiveServer
-@using System.Net.Http.Json
 @using Rag.Core.Domain.DTOs
-@inject HttpClient Http
+@inject Rag.Core.Interfaces.Services.IRagService RagService
 
 <h3>Chat</h3>
 
-<div class="mb-3">
-    <label class="form-label">Pergunta</label>
-    <textarea class="form-control" rows="3" @bind="question"></textarea>
-</div>
+<textarea class="form-control mb-2" rows="3" @bind="question"></textarea>
 
-<div class="d-flex flex-wrap gap-2 mb-3">
-    <button type="button" class="btn btn-primary" @onclick="AskDemo" disabled="@isLoading">Perguntar (demo)</button>
-    <button type="button" class="btn btn-success" @onclick="AskRag" disabled="@isLoading">Perguntar (RAG)</button>
-    <button type="button" class="btn btn-secondary" @onclick="Ping" disabled="@isLoading">Ping API</button>
+<div class="d-flex gap-2 mb-3">
+    <button class="btn btn-success" @onclick="AskRag" disabled="@isLoading">Perguntar (stream)</button>
+    <button class="btn btn-secondary" @onclick="Cancel" disabled="!isLoading">Cancelar</button>
 </div>
 
 @if (!string.IsNullOrWhiteSpace(status))
@@ -22,95 +17,90 @@
     <div class="alert alert-info">@status</div>
 }
 
-@if (resp is not null)
+@if (!string.IsNullOrEmpty(answer))
 {
     <div class="card mt-3">
-        <div class="card-header">
-            Resposta @if (resp.TookMs > 0) {
-            <span class="text-muted">(@resp.TookMs ms)</span>
-        }
+        <div class="card-header">Resposta</div>
+        <div class="card-body">
+            <pre class="mb-0">@answer</pre>
+        </div>
     </div>
-    <div class="card-body">
-        <pre class="mb-0">@resp.Answer</pre>
-    </div>
-</div>
+}
 
-@if (resp.Sources is not null && resp.Sources.Count > 0)
+@if (sources?.Any() == true)
 {
     <div class="mt-3">
         <h5>Fontes</h5>
         <ul class="list-group">
-            @foreach (var s in resp.Sources)
+            @foreach (var s in sources)
             {
                 <li class="list-group-item">
                     <div><strong>@s.Title</strong> <small class="text-muted">— @s.Source</small></div>
-                    @if (!string.IsNullOrWhiteSpace(s.Snippet))
-                    {
-                        <div class="text-muted small">@s.Snippet</div>
-                    }
+                    <div class="text-muted small">@s.Snippet</div>
                 </li>
             }
         </ul>
     </div>
 }
-}
 
 @code {
     private string question = "";
+    private string answer = "";
     private string? status;
     private bool isLoading;
-    private AskResponse? resp;
+    private CancellationTokenSource? cts;
+    private List<SourceRef>? sources;
 
-    private async Task Ping()
+    private async Task AskRag()
     {
+        answer = "";
+        sources = new List<SourceRef>();
+        status = "Iniciando...";
+        isLoading = true;
+        StateHasChanged();
+
+        cts = new CancellationTokenSource();
+
+        var req = new AskRequest { Question = question, K = 5 };
+
         try
         {
-            isLoading = true; status = "Chamando /health/live...";
-            using var httpRes = await Http.GetAsync("/health/ready");
-            if (httpRes.IsSuccessStatusCode)
+            await foreach (var part in RagService.AskStreamAsync(req, cts.Token))
             {
-                status = "Ping ok (live)";
+                if (part.Kind == StreamPartKind.Delta && !string.IsNullOrEmpty(part.Delta))
+                {
+                    answer += part.Delta;
+                    // atualiza a UI progressivamente
+                    StateHasChanged();
+                }
+                else if (part.Kind == StreamPartKind.Finished && part.Sources != null)
+                {
+                    sources = part.Sources.ToList();
+                    break;
+                }
             }
-            else
-            {
-                status = $"Ping falhou (status {(int)httpRes.StatusCode})";
-            }
+
+            status = "Concluído";
+        }
+        catch (OperationCanceledException)
+        {
+            status = "Cancelado";
         }
         catch (Exception ex)
         {
             status = $"Erro: {ex.Message}";
         }
-        finally { isLoading = false; }
+        finally
+        {
+            isLoading = false;
+            cts?.Dispose();
+            cts = null;
+            StateHasChanged();
+        }
     }
 
-    private async Task AskDemo()
+    private void Cancel()
     {
-        await CallAsk("/api/ask-demo");
+        cts?.Cancel();
     }
-
-    private async Task AskRag()
-    {
-        await CallAsk("/api/ask");
-    }
-
-    private async Task CallAsk(string url)  
-    {  
-        try  
-        {  
-            isLoading = true; status = $"Chamando {url}...";  
-            Http.Timeout = TimeSpan.FromMinutes(10);
-            var req = new AskRequest { Question = question, K = 5, MaxContextTokens = 2000 };  
-            using var httpRes = await Http.PostAsJsonAsync(url, req);  
-            httpRes.EnsureSuccessStatusCode();  
-            resp = await httpRes.Content.ReadFromJsonAsync<AskResponse>();  
-            status = "OK";  
-        }  
-        catch (Exception ex)  
-        {  
-            status = $"Erro: {ex.Message}";  
-        }  
-        finally { isLoading = false; }  
-    }
-
-    private class PingRes { public bool ok { get; set; } public DateTime time { get; set; } }
 }

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Pgvector;
 using Rag.Core.Interfaces;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -119,29 +120,15 @@ namespace Rag.Infrastructure.Llm
             throw new InvalidOperationException("Resposta de geração sem campo 'response'.");
         }
 
-        public async Task<string> GenerateStreamAggregatedAsync(string model, string prompt, CancellationToken ct = default)
+        public async IAsyncEnumerable<string> GenerateStreamAsync(string model, string prompt, [EnumeratorCancellation] CancellationToken ct = default)
         {
-            var payload = new
-            {
-                model,
-                prompt,
-                stream = true,
-                options = new
-                {
-                    temperature = _opt.Temperature,
-                    num_ctx = _opt.NumCtx
-                }
-            };
-
+            var payload = new { model, prompt, stream = true, options = new { temperature = _opt.Temperature, num_ctx = _opt.NumCtx } };
             var content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
-            var sw = System.Diagnostics.Stopwatch.StartNew();
 
             using var res = await http.PostAsync("/api/generate", content, ct);
             res.EnsureSuccessStatusCode();
-
             using var stream = await res.Content.ReadAsStreamAsync(ct);
             using var reader = new StreamReader(stream);
-            var sb = new StringBuilder();
 
             while (!reader.EndOfStream)
             {
@@ -149,23 +136,26 @@ namespace Rag.Infrastructure.Llm
                 var line = await reader.ReadLineAsync(ct);
                 if (string.IsNullOrWhiteSpace(line)) continue;
 
+                string? delta = null;
+
                 try
                 {
                     using var doc = JsonDocument.Parse(line);
                     if (doc.RootElement.TryGetProperty("response", out var resp))
                     {
-                        sb.Append(resp.GetString());
+                        delta = resp.GetString();
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    logger.LogWarning(ex, "Falha ao desserializar linha do stream do Ollama. Linha truncada: {Line}", Trunc(line, 300));
+                }
+
+                if (!string.IsNullOrEmpty(delta))
+                {
+                    yield return delta;
                 }
             }
-
-            sw.Stop();
-            var final = sb.ToString();
-            logger.LogInformation("Generate (stream agregado) OK em {Elapsed} ms. RespLen={Len}", sw.ElapsedMilliseconds, final.Length);
-            return final;
         }
 
         private static string Trunc(string s, int max) => string.IsNullOrEmpty(s) ? s : (s.Length > max ? s[..max] + "..." : s);

@@ -18,16 +18,16 @@ public static class AskEndpoints
             return Results.Ok(res);
         }).WithRequestTimeout(TimeSpan.FromMinutes(10));
 
-        group.MapPost("/ask-demo", (AskRequest req) =>
-        {
-            var answer = $"[demo] Você perguntou: \"{req.Question}\". K={req.K}, MaxCtx={req.MaxContextTokens}.";
-            return Results.Ok(new AskResponse
-            {
-                Answer = answer,
-                Sources = [],
-                TookMs = 1
-            });
-        });
+        //group.MapPost("/ask-demo", (AskRequest req) =>
+        //{
+        //    var answer = $"[demo] Você perguntou: \"{req.Question}\". K={req.K}, MaxCtx={req.MaxContextTokens}.";
+        //    return Results.Ok(new AskResponse
+        //    {
+        //        Answer = answer,
+        //        Sources = [],
+        //        TookMs = 1
+        //    });
+        //});
 
         return routes;
     }

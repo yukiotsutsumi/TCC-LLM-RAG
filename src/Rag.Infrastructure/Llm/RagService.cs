@@ -1,7 +1,9 @@
 ﻿using Rag.Core.Domain.DTOs;
+using Rag.Core.Domain.Entities;
 using Rag.Core.Interfaces;
 using Rag.Core.Interfaces.Repositories;
 using Rag.Core.Interfaces.Services;
+using System.Runtime.CompilerServices;
 
 namespace Rag.Infrastructure.Llm;
 
@@ -54,6 +56,69 @@ public class RagService(IOllamaClient ollama, IChunkRepository chunks, Microsoft
         }).ToList();
 
         return new AskResponse { Answer = answer, Sources = sources };
+    }
+
+    public async IAsyncEnumerable<StreamPart> AskStreamAsync(AskRequest request, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        // 1) Embed
+        var qEmb = await ollama.EmbedAsync(_opt.EmbeddingModel, request.Question, ct);
+
+        // 2) Busca vetorial
+        var top = (await chunks.QueryKnnAsync(qEmb, request.K, ct: ct)).ToList();
+
+        // 3) Monta contexto
+        string ctx = top.Count == 0
+            ? "(sem resultados relacionados)"
+            : string.Join("\n", top.Select(t => $"- [{t.DocumentTitle ?? "Doc"}] {Trim(t.Chunk.Content, 600)}"));
+
+        // 4) Prompt
+        var prompt = $@"
+        Você é um assistente técnico em Segurança da Informação, responda em PT-BR.
+        Use apenas o contexto. Se não houver informação suficiente, diga isso e não invente.
+        Cite as fontes entre colchetes no final.
+
+        Contexto:
+        {ctx}
+
+        Pergunta:
+        {request.Question}";
+
+        // 5) Obter enumerador do stream do LLM
+        await using var enumerator = ollama.GenerateStreamAsync(_opt.GenerationModel, prompt, ct).GetAsyncEnumerator(ct);
+
+        while (true)
+        {
+            bool moved;
+            try
+            {
+                moved = await enumerator.MoveNextAsync();
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // cancelado pelo chamador: encerra a iteração silenciosamente
+                yield break;
+            }
+
+            if (!moved)
+                break;
+
+            var delta = enumerator.Current;
+            if (!string.IsNullOrEmpty(delta))
+            {
+                yield return StreamPart.CreateDelta(delta);
+            }
+        }
+
+        // 6) Ao terminar a geração, monta e envia as fontes como evento final
+        var sources = top.Select(t => new SourceRef
+        {
+            ChunkId = t.Chunk.Id,
+            Title = t.DocumentTitle ?? "Doc",
+            Source = t.DocumentSource ?? t.Chunk.DocumentId.ToString(),
+            Snippet = Trim(t.Chunk.Content, 300)
+        }).ToList();
+
+        yield return StreamPart.CreateFinished(sources);
     }
 
     private static string Trim(string s, int max) => s.Length > max ? s[..max] + "..." : s;
