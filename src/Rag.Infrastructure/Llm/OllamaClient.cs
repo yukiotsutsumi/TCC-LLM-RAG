@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Options;
 using Pgvector;
 using Rag.Core.Interfaces;
-using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -25,9 +24,14 @@ namespace Rag.Infrastructure.Llm
                 throw new ArgumentException("Embedding input vazio.", nameof(text));
 
             var payload = new { model, prompt = text };
-            var content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
+
+            using var content = new StringContent(
+                JsonSerializer.Serialize(payload, JsonOpts),
+                Encoding.UTF8,
+                "application/json");
+
             using var res = await http.PostAsync("/api/embeddings", content, ct);
             var body = await res.Content.ReadAsStringAsync(ct);
             sw.Stop();
@@ -87,9 +91,13 @@ namespace Rag.Infrastructure.Llm
                 }
             };
 
-            var content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
-
             var sw = System.Diagnostics.Stopwatch.StartNew();
+
+            using var content = new StringContent(
+                JsonSerializer.Serialize(payload, JsonOpts),
+                Encoding.UTF8,
+                "application/json");
+
             using var res = await http.PostAsync("/api/generate", content, ct);
             var body = await res.Content.ReadAsStringAsync(ct);
             sw.Stop();
@@ -122,11 +130,26 @@ namespace Rag.Infrastructure.Llm
 
         public async IAsyncEnumerable<string> GenerateStreamAsync(string model, string prompt, [EnumeratorCancellation] CancellationToken ct = default)
         {
-            var payload = new { model, prompt, stream = true, options = new { temperature = _opt.Temperature, num_ctx = _opt.NumCtx } };
-            var content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
+            var payload = new
+            {
+                model,
+                prompt,
+                stream = true,
+                options = new
+                {
+                    temperature = _opt.Temperature,
+                    num_ctx = _opt.NumCtx
+                }
+            };
+
+            using var content = new StringContent(
+                JsonSerializer.Serialize(payload, JsonOpts),
+                Encoding.UTF8,
+                "application/json");
 
             using var res = await http.PostAsync("/api/generate", content, ct);
             res.EnsureSuccessStatusCode();
+
             using var stream = await res.Content.ReadAsStreamAsync(ct);
             using var reader = new StreamReader(stream);
 
