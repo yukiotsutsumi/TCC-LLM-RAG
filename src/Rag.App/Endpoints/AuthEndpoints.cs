@@ -1,26 +1,73 @@
-﻿using Rag.Core.Domain.DTOs.Auth.Request;
+﻿using Microsoft.AspNetCore.Authorization;
+using Rag.Core.Domain.DTOs.Auth.Request;
 using Rag.Core.Interfaces.Services;
+using System.Security.Claims;
 
-namespace Rag.App.Endpoints;
-
-public static class AuthEndpoints
+namespace Rag.App.Endpoints
 {
-    public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
+    public static class AuthEndpoints
     {
-        var group = app.MapGroup("/api/auth").WithTags("Auth");
+        private const string RefreshCookieName = "X-Refresh-Token";
 
-        group.MapPost("/register", async (RegisterRequest request, IAuthService authService) =>
+        public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
         {
-            var result = await authService.RegisterAsync(request);
-            return result.Success ? Results.Ok(result) : Results.BadRequest(result);
-        });
+            var group = app.MapGroup("/api/auth").WithTags("Auth");
 
-        group.MapPost("/login", async (LoginRequest request, IAuthService authService) =>
+            group.MapPost("/login", async (HttpContext context, LoginRequest request, IAuthService auth) =>
+            {
+                var result = await auth.LoginAsync(request);
+                if (!result.Success) return Results.Unauthorized();
+
+                SetRefreshTokenCookie(context, result.Data!.RefreshToken, result.Data.RefreshTokenExpiresAtUtc);
+
+                return Results.Ok(new { result.Data.AccessToken, result.Data.AccessTokenExpiresAtUtc });
+            });
+
+            group.MapPost("/refresh", async (HttpContext context, IAuthService auth) =>
+            {
+                var refreshToken = context.Request.Cookies[RefreshCookieName];
+                if (string.IsNullOrEmpty(refreshToken)) return Results.Unauthorized();
+
+                var result = await auth.RefreshAsync(refreshToken);
+                if (!result.Success) return Results.Unauthorized();
+
+                SetRefreshTokenCookie(context, result.Data!.RefreshToken, result.Data.RefreshTokenExpiresAtUtc);
+
+                return Results.Ok(new { result.Data.AccessToken, result.Data.AccessTokenExpiresAtUtc });
+            });
+
+            group.MapPost("/register", async (RegisterRequest request, IAuthService auth) =>
+            {
+                var result = await auth.RegisterAsync(request);
+                return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+            });
+
+            group.MapPost("/logout", [Authorize] async (HttpContext context, IAuthService auth) =>
+            {
+                var sub = context.User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+                if (!Guid.TryParse(sub, out var userId))
+                    return Results.Unauthorized();
+
+                var result = await auth.LogoutAsync(userId);
+
+                context.Response.Cookies.Delete(RefreshCookieName);
+
+                return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+            });
+
+            return app;
+        }
+
+        private static void SetRefreshTokenCookie(HttpContext context, string token, DateTime expires)
         {
-            var result = await authService.LoginAsync(request);
-            return result.Success ? Results.Ok(result) : Results.Ok(result); // TODO: Retornamos 200 mesmo em erro para tratar no front, ou 401 se preferir
-        });
-
-        return app;
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = context.Request.IsHttps,
+                SameSite = SameSiteMode.Strict,
+                Expires = expires
+            };
+            context.Response.Cookies.Append(RefreshCookieName, token, cookieOptions);
+        }
     }
 }

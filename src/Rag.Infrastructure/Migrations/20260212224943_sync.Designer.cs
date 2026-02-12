@@ -13,8 +13,8 @@ using Rag.Infrastructure.Data;
 namespace Rag.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260212224943_sync")]
-    partial class sync
+    [Migration("20260212224943_Sync")]
+    partial class Sync
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

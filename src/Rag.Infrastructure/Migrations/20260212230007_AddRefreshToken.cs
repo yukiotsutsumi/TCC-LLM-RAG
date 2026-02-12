@@ -1,19 +1,26 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace Rag.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class Sync : Migration
+    public partial class AddRefreshToken : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
-                name: "FullName",
+                name: "RefreshToken",
                 table: "users",
                 type: "text",
+                nullable: true);
+
+            migrationBuilder.AddColumn<DateTime>(
+                name: "RefreshTokenExpiryTime",
+                table: "users",
+                type: "timestamp with time zone",
                 nullable: true);
         }
 
@@ -21,7 +28,11 @@ namespace Rag.Infrastructure.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "FullName",
+                name: "RefreshToken",
+                table: "users");
+
+            migrationBuilder.DropColumn(
+                name: "RefreshTokenExpiryTime",
                 table: "users");
         }
     }

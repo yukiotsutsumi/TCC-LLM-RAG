@@ -35,5 +35,6 @@ app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 app.MapMetricsEndpoint();
 app.MapHealthEndpoints();
 app.MapAskEndpoints();
+app.MapAuthEndpoints();
 app.MapIngestEndpoints();
 app.Run();

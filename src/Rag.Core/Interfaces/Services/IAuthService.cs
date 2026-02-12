@@ -7,6 +7,8 @@ namespace Rag.Core.Interfaces.Services
     {
         Task<AuthResponse> RegisterAsync(RegisterRequest request);
         Task<AuthResponse> LoginAsync(LoginRequest request);
+        Task<AuthResponse> RefreshAsync(string refreshToken);
+        Task<AuthResponse> LogoutAsync(Guid userId);
     }
 
 }
