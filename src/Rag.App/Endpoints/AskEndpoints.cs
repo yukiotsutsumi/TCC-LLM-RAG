@@ -1,4 +1,4 @@
-﻿using Rag.Core.Domain.DTOs;
+﻿using Rag.Core.Domain.DTOs.Ask.Requests;
 using Rag.Core.Interfaces.Services;
 using System.Diagnostics;
 

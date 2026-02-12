@@ -7,6 +7,7 @@ using Rag.Core.Interfaces.Repositories;
 using Rag.Core.Interfaces.Services;
 using Rag.Infrastructure.Data;
 using Rag.Infrastructure.Llm;
+using Rag.Infrastructure.Services;
 using Rag.Infrastructure.Text;
 
 namespace Rag.App.Extensions;
@@ -37,6 +38,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IChunker, SimpleChunker>();
         services.AddScoped<IRagService, RagService>();
         services.AddScoped<IIngestionService, IngestionService>();
+        services.AddScoped<IAuthService, AuthService>();
 
         _ = services.AddScoped(sp =>
         {

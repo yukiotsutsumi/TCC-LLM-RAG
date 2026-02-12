@@ -1,4 +1,4 @@
-﻿namespace Rag.Core.Domain.DTOs
+﻿namespace Rag.Core.Domain.DTOs.Ask.Requests
 {
     public class AskRequest 
     { 

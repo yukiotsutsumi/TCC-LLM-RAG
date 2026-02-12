@@ -1,4 +1,6 @@
-﻿namespace Rag.Core.Domain.DTOs
+﻿using Rag.Core.Domain.DTOs.ResponseIA;
+
+namespace Rag.Core.Domain.DTOs.Ask.Responses
 {
     public class AskResponse 
     { 

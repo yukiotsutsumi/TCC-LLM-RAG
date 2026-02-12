@@ -1,11 +1,15 @@
 ﻿using Rag.Core.Domain.DTOs;
+using Rag.Core.Domain.DTOs.Ask.Requests;
+using Rag.Core.Domain.DTOs.Ask.Responses;
+using Rag.Core.Domain.DTOs.ResponseIA;
 using Rag.Core.Domain.Entities;
 using Rag.Core.Interfaces;
 using Rag.Core.Interfaces.Repositories;
 using Rag.Core.Interfaces.Services;
+using Rag.Infrastructure.Llm;
 using System.Runtime.CompilerServices;
 
-namespace Rag.Infrastructure.Llm;
+namespace Rag.Infrastructure.Services;
 
 public class RagService(IOllamaClient ollama, IChunkRepository chunks, Microsoft.Extensions.Options.IOptions<OllamaOptions> opt) : IRagService
 {

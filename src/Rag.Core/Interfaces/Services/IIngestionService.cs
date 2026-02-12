@@ -1,4 +1,5 @@
-﻿using Rag.Core.Domain.DTOs;
+﻿using Rag.Core.Domain.DTOs.Ingest.Requests;
+using Rag.Core.Domain.DTOs.Ingest.Responses;
 
 namespace Rag.Core.Interfaces.Services;
 

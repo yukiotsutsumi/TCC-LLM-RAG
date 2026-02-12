@@ -1,10 +1,11 @@
-﻿using Rag.Core.Domain.DTOs;
+﻿using Rag.Core.Domain.DTOs.Ingest.Requests;
+using Rag.Core.Domain.DTOs.Ingest.Responses;
 using Rag.Core.Domain.Entities;
 using Rag.Core.Interfaces;
 using Rag.Core.Interfaces.Repositories;
 using Rag.Core.Interfaces.Services;
 
-namespace Rag.Infrastructure.Llm;
+namespace Rag.Infrastructure.Services;
 
 public class IngestionService(
     IDocumentRepository docs,

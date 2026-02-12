@@ -1,9 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Rag.Core.Domain.Entities;
+using Rag.Core.Domain.Models;
 
 namespace Rag.Infrastructure.Data;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbContext<User, Role, Guid>(options)
 {
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<Chunk> Chunks => Set<Chunk>();
@@ -35,8 +38,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Content);
 
             e.Property(x => x.Embedding)
-            .HasColumnType("vector(1024)")
-            .IsRequired();
+                .HasColumnType("vector(1024)")
+                .IsRequired();
 
             e.Property(x => x.MetadataJson).HasColumnType("jsonb");
 
@@ -44,20 +47,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.UmapY);
         });
 
-        // Índice HNSW para otimizar buscas KNN
         modelBuilder.Entity<Chunk>()
             .HasIndex(c => c.Embedding)
             .HasMethod("hnsw")
             .HasOperators("vector_cosine_ops")
             .HasStorageParameter("m", 16)
             .HasStorageParameter("ef_construction", 64);
-
-        // Configuração para KnnRow (usado em consultas SQL raw)
-        modelBuilder.Entity<KnnRow>(e =>
-        {
-            e.HasNoKey();
-            e.Property(x => x.Embedding).HasColumnType("vector(1024)");
-        });
 
         modelBuilder.Entity<KnnRow>(e =>
         {
@@ -74,5 +69,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Title);
             e.Property(x => x.Source);
         });
+
+        modelBuilder.Entity<User>().ToTable("users");
+        modelBuilder.Entity<Role>().ToTable("roles");
+        modelBuilder.Entity<IdentityUserRole<Guid>>().ToTable("user_roles");
+        modelBuilder.Entity<IdentityUserClaim<Guid>>().ToTable("user_claims");
+        modelBuilder.Entity<IdentityUserLogin<Guid>>().ToTable("user_logins");
+        modelBuilder.Entity<IdentityUserToken<Guid>>().ToTable("user_tokens");
+        modelBuilder.Entity<IdentityRoleClaim<Guid>>().ToTable("role_claims");
     }
 }

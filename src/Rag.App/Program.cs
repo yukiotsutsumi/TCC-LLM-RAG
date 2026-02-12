@@ -11,6 +11,8 @@ builder.Configuration.ApplyContainerOverrides(builder.Environment);
 builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddObservability(builder.Configuration);
 builder.Services.AddAppHealthChecks();
+
+builder.Services.AddIdentityServices(builder.Configuration);
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddRequestTimeouts();
 
@@ -24,7 +26,8 @@ using (var scope = app.Services.CreateScope())
 
 app.UseForwardedHeadersForProxy();
 app.UseEnvironmentSpecificMiddleware();
-
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseStaticFiles();
 app.UseAntiforgery();
 app.UseRequestTimeouts();
