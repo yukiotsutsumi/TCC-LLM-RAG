@@ -2,7 +2,7 @@
 using Rag.Core.Domain.Entities;
 using Rag.Core.Interfaces.Repositories;
 
-namespace Rag.Infrastructure.Data;
+namespace Rag.Infrastructure.Data.Repositories;
 
 public class DocumentRepository(AppDbContext db) : IDocumentRepository
 {

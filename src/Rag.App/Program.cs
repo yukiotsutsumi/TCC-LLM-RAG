@@ -1,11 +1,10 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.JsonWebTokens;
 using Rag.App.Components;
 using Rag.App.Endpoints;
 using Rag.App.Endpoints.HealthCheck;
 using Rag.App.Extensions;
+using Rag.App.Middleware;
 using Rag.Infrastructure.Data;
-using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +16,7 @@ builder.Services.AddAppHealthChecks();
 builder.Services.AddIdentityServices(builder.Configuration);
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddRequestTimeouts();
+builder.Services.AddAppRateLimiting();
 
 var app = builder.Build();
 
@@ -30,6 +30,8 @@ app.UseForwardedHeadersForProxy();
 app.UseEnvironmentSpecificMiddleware();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<JtiBlacklistMiddleware>();
+app.UseRateLimiter();
 app.UseStaticFiles();
 app.UseAntiforgery();
 app.UseRequestTimeouts();

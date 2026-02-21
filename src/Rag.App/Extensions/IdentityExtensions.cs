@@ -47,7 +47,7 @@ public static class IdentityExtensions
         .AddJwtBearer(options =>
         {
             options.MapInboundClaims = false;
-            options.RequireHttpsMetadata = false; //TODO: mudar em prod
+            options.RequireHttpsMetadata = true;
             options.SaveToken = true;
 
             options.TokenValidationParameters = new TokenValidationParameters

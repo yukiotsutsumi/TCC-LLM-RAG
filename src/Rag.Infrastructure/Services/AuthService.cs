@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Rag.Core.Domain.DTOs.Auth.Request;
 using Rag.Core.Domain.DTOs.Auth.Response;
 using Rag.Core.Domain.Models;
+using Rag.Core.Interfaces.Repositories;
 using Rag.Core.Interfaces.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -14,15 +15,17 @@ namespace Rag.Infrastructure.Services;
 
 public class AuthService(
     UserManager<User> userManager,
+    IRefreshTokenRepository refreshTokenRepo,
+    IRevokedTokenRepository revokedTokenRepo,
     IConfiguration configuration) : IAuthService
 {
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
-        var byName = await userManager.FindByNameAsync(request.Username);
-        if (byName != null) return new AuthResponse(false, "Username já existe.");
+        if (await userManager.FindByNameAsync(request.Username) != null)
+            return new AuthResponse(false, "Username já existe.");
 
-        var byEmail = await userManager.FindByEmailAsync(request.Email);
-        if (byEmail != null) return new AuthResponse(false, "Email já cadastrado.");
+        if (await userManager.FindByEmailAsync(request.Email) != null)
+            return new AuthResponse(false, "Email já cadastrado.");
 
         var user = new User
         {
@@ -42,77 +45,133 @@ public class AuthService(
         return new AuthResponse(true, "Usuário registrado com sucesso.");
     }
 
-    public async Task<AuthResponse> LoginAsync(LoginRequest request)
+    public async Task<AuthResponse> LoginAsync(LoginRequest request, string? ipAddress = null)
     {
         var user = await userManager.FindByNameAsync(request.Username);
+
         if (user == null || !await userManager.CheckPasswordAsync(user, request.Password))
             return new AuthResponse(false, "Credenciais inválidas.");
 
-        return await GenerateFullAuthResponse(user);
+        var familyId = Guid.NewGuid();
+
+        return await GenerateFullAuthResponseAsync(user, familyId, ipAddress);
     }
 
-    public async Task<AuthResponse> RefreshAsync(string refreshToken)
+    public async Task<AuthResponse> RefreshAsync(string refreshToken, string? ipAddress = null)
     {
         if (string.IsNullOrWhiteSpace(refreshToken))
             return new AuthResponse(false, "Refresh token ausente.");
 
-        var user = userManager.Users.SingleOrDefault(u => u.RefreshToken == refreshToken);
-        if (user == null || user.RefreshTokenExpiryTime < DateTime.UtcNow)
-            return new AuthResponse(false, "Refresh token inválido ou expirado.");
+        var stored = await refreshTokenRepo.GetByTokenAsync(refreshToken);
 
-        return await GenerateFullAuthResponse(user);
+        if (stored == null)
+            return new AuthResponse(false, "Refresh token inválido.");
+
+        // ⚠️ REUSE DETECTION
+        // Token já foi revogado → alguém está tentando reutilizar
+        // Invalida TODA a família de tokens (possível roubo de token)
+        if (stored.IsRevoked)
+        {
+            await refreshTokenRepo.RevokeAllByFamilyAsync(
+                stored.FamilyId,
+                "Reuse detection — possível roubo de token");
+            await refreshTokenRepo.SaveChangesAsync();
+            return new AuthResponse(false, "Refresh token comprometido. Faça login novamente.");
+        }
+
+        if (stored.IsExpired)
+            return new AuthResponse(false, "Refresh token expirado.");
+
+        stored.RevokedAt = DateTime.UtcNow;
+
+        var response = await GenerateFullAuthResponseAsync(stored.User, stored.FamilyId, ipAddress);
+
+        if (response.Data != null)
+            stored.ReplacedByToken = response.Data.RefreshToken;
+
+        await refreshTokenRepo.SaveChangesAsync();
+
+        return response;
     }
 
-    private async Task<AuthResponse> GenerateFullAuthResponse(User user)
+    public async Task<AuthResponse> LogoutAsync(Guid userId, string? jti = null)
     {
-        var (accessToken, accessExpiresAt) = await GenerateJwtAsync(user);
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+            return new AuthResponse(false, "Usuário não encontrado.");
 
-        var refreshToken = GenerateRefreshToken();
+        await refreshTokenRepo.RevokeAllByUserAsync(userId);
+        await refreshTokenRepo.SaveChangesAsync();
+
+        if (!string.IsNullOrWhiteSpace(jti))
+        {
+            var minutes = double.Parse(configuration["Jwt:ExpirationMinutes"] ?? "30");
+
+            var revokedToken = new RevokedToken
+            {
+                Jti = jti,
+                UserId = userId,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(minutes),
+                RevokedAt = DateTime.UtcNow
+            };
+
+            await revokedTokenRepo.AddAsync(revokedToken);
+
+            await revokedTokenRepo.PurgeExpiredAsync();
+            await revokedTokenRepo.SaveChangesAsync();
+        }
+
+        return new AuthResponse(true, "Logout realizado.");
+    }
+
+    private async Task<AuthResponse> GenerateFullAuthResponseAsync(
+        User user,
+        Guid familyId,
+        string? ipAddress)
+    {
+        var (accessToken, jti, accessExpiresAt) = await GenerateJwtAsync(user);
+
         var refreshDays = int.Parse(configuration["Jwt:RefreshTokenDays"] ?? "7");
-        var refreshExpiresAt = DateTime.UtcNow.AddDays(refreshDays);
 
-        user.RefreshToken = refreshToken;
-        user.RefreshTokenExpiryTime = refreshExpiresAt;
-        await userManager.UpdateAsync(user);
+        var newRefreshToken = new RefreshToken
+        {
+            Token = GenerateRefreshTokenString(),
+            UserId = user.Id,
+            FamilyId = familyId,
+            ExpiresAt = DateTime.UtcNow.AddDays(refreshDays),
+            CreatedByIp = ipAddress
+        };
+
+        await refreshTokenRepo.AddAsync(newRefreshToken);
+        await refreshTokenRepo.SaveChangesAsync();
 
         var data = new AuthSuccessResponse(
             accessToken,
             accessExpiresAt,
-            refreshToken,
-            refreshExpiresAt
+            newRefreshToken.Token,
+            newRefreshToken.ExpiresAt
         );
 
         return new AuthResponse(true, "Sucesso", data);
     }
 
-    public async Task<AuthResponse> LogoutAsync(Guid userId)
-    {
-        var user = await userManager.FindByIdAsync(userId.ToString());
-        if (user == null) return new AuthResponse(false, "Usuário não encontrado.");
-
-        user.RefreshToken = null;
-        user.RefreshTokenExpiryTime = null;
-        await userManager.UpdateAsync(user);
-
-        return new AuthResponse(true, "Logout realizado.");
-    }
-
-    private async Task<(string token, DateTime expiresAtUtc)> GenerateJwtAsync(User user)
+    private async Task<(string token, string jti, DateTime expiresAtUtc)> GenerateJwtAsync(User user)
     {
         var jwt = configuration.GetSection("Jwt");
         var secretKey = jwt["SecretKey"] ?? throw new InvalidOperationException("Jwt:SecretKey missing");
         var issuer = jwt["Issuer"];
         var audience = jwt["Audience"];
-        var minutes = double.Parse(jwt["ExpirationMinutes"] ?? "10");
+        var minutes = double.Parse(jwt["ExpirationMinutes"] ?? "30");
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        var jti = Guid.NewGuid().ToString();
 
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.UniqueName, user.UserName ?? ""),
             new(JwtRegisteredClaimNames.Email, user.Email ?? ""),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new(JwtRegisteredClaimNames.Jti, jti),
             new("fullName", user.FullName ?? "")
         };
 
@@ -131,15 +190,13 @@ public class AuthService(
             signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
         );
 
-        var tokenStr = new JwtSecurityTokenHandler().WriteToken(token);
-        return (tokenStr, expiresAt);
+        return (new JwtSecurityTokenHandler().WriteToken(token), jti, expiresAt);
     }
 
-    private static string GenerateRefreshToken()
+    private static string GenerateRefreshTokenString()
     {
         var bytes = new byte[64];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(bytes);
+        RandomNumberGenerator.Fill(bytes);
         return Convert.ToBase64String(bytes);
     }
 }

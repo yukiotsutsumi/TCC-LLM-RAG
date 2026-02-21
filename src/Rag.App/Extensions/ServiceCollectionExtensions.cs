@@ -6,6 +6,7 @@ using Rag.Core.Interfaces;
 using Rag.Core.Interfaces.Repositories;
 using Rag.Core.Interfaces.Services;
 using Rag.Infrastructure.Data;
+using Rag.Infrastructure.Data.Repositories;
 using Rag.Infrastructure.Llm;
 using Rag.Infrastructure.Services;
 using Rag.Infrastructure.Text;
@@ -39,6 +40,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRagService, RagService>();
         services.AddScoped<IIngestionService, IngestionService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IRevokedTokenRepository, RevokedTokenRepository>();
 
         _ = services.AddScoped(sp =>
         {

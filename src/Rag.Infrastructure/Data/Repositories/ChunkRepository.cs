@@ -4,7 +4,7 @@ using Rag.Core.Domain.Entities;
 using Rag.Core.Interfaces.Repositories;
 using Rag.Core.Domain.Models;
 
-namespace Rag.Infrastructure.Data;
+namespace Rag.Infrastructure.Data.Repositories;
 
 public class ChunkRepository(AppDbContext db) : IChunkRepository
 {
