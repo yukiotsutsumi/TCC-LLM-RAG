@@ -9,9 +9,11 @@ namespace Rag.App.Extensions;
 
 public static class IdentityExtensions
 {
-    public static IServiceCollection AddIdentityServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddIdentityServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
-        services.AddIdentity<User, Role>(options =>
+        services.AddIdentityCore<User>(options =>
         {
             options.Password.RequireDigit = true;
             options.Password.RequiredLength = 8;
@@ -25,14 +27,16 @@ public static class IdentityExtensions
             options.Lockout.MaxFailedAccessAttempts = 5;
             options.Lockout.AllowedForNewUsers = true;
         })
+        .AddRoles<Role>()
         .AddEntityFrameworkStores<AppDbContext>()
-        .AddDefaultTokenProviders();
+        .AddDefaultTokenProviders()
+        .AddSignInManager();
 
         var jwtSettings = configuration.GetSection("Jwt");
         var secretKey = jwtSettings["SecretKey"]
             ?? throw new InvalidOperationException("JWT SecretKey não configurada");
 
-        var key = Encoding.ASCII.GetBytes(secretKey);
+        var key = Encoding.UTF8.GetBytes(secretKey);
 
         services.AddAuthentication(options =>
         {
@@ -42,16 +46,21 @@ public static class IdentityExtensions
         })
         .AddJwtBearer(options =>
         {
-            options.RequireHttpsMetadata = false; // TODO: mudar em prod
+            options.MapInboundClaims = false;
+            options.RequireHttpsMetadata = false; //TODO: mudar em prod
             options.SaveToken = true;
+
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(key),
+
                 ValidateIssuer = true,
                 ValidIssuer = jwtSettings["Issuer"],
+
                 ValidateAudience = true,
                 ValidAudience = jwtSettings["Audience"],
+
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero
             };

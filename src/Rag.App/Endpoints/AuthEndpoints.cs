@@ -11,7 +11,7 @@ namespace Rag.App.Endpoints
 
         public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
         {
-            var group = app.MapGroup("/api/auth").WithTags("Auth");
+            var group = app.MapGroup("/api/auth").WithTags("Auth").DisableAntiforgery();
 
             group.MapPost("/login", async (HttpContext context, LoginRequest request, IAuthService auth) =>
             {
@@ -42,7 +42,7 @@ namespace Rag.App.Endpoints
                 return result.Success ? Results.Ok(result) : Results.BadRequest(result);
             });
 
-            group.MapPost("/logout", [Authorize] async (HttpContext context, IAuthService auth) =>
+            group.MapPost("/logout", async (HttpContext context, IAuthService auth) =>
             {
                 var sub = context.User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
                 if (!Guid.TryParse(sub, out var userId))
@@ -53,7 +53,7 @@ namespace Rag.App.Endpoints
                 context.Response.Cookies.Delete(RefreshCookieName);
 
                 return result.Success ? Results.Ok(result) : Results.BadRequest(result);
-            });
+            }).RequireAuthorization();
 
             return app;
         }

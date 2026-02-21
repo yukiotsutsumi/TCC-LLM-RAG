@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Rag.App.Components;
 using Rag.App.Endpoints;
 using Rag.App.Endpoints.HealthCheck;
 using Rag.App.Extensions;
 using Rag.Infrastructure.Data;
+using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
