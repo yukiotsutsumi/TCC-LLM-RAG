@@ -1,4 +1,13 @@
-﻿namespace Rag.Core.Domain.DTOs.Auth.Request
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Rag.Core.Domain.DTOs.Auth.Request
 {
-    public record LoginRequest(string Username, string Password);
+    public class LoginRequest
+    {
+        [Required]
+        public string Username { get; set; } = string.Empty;
+
+        [Required]
+        public string Password { get; set; } = string.Empty;
+    }
 }

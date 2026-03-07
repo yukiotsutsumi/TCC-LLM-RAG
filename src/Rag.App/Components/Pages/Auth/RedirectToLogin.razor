@@ -1,0 +1,17 @@
+﻿@using System
+@inject NavigationManager Nav
+
+@code {
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            if (!uri.AbsolutePath.Contains("/login", StringComparison.OrdinalIgnoreCase))
+            {
+                var returnUrl = Uri.EscapeDataString(Nav.Uri);
+                Nav.NavigateTo($"/login?returnUrl={returnUrl}");
+            }
+        }
+    }
+}

@@ -1,6 +1,9 @@
-﻿using System.Threading.RateLimiting;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using System.Threading.RateLimiting;
 
-namespace Rag.App.Extensions;
+namespace Rag.Api.Extensions;
 
 public static class RateLimitingExtensions
 {

@@ -1,11 +1,13 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Rag.Core.Domain.Models;
 using Rag.Infrastructure.Data;
 using System.Text;
 
-namespace Rag.App.Extensions;
+namespace Rag.Api.Extensions;
 
 public static class IdentityExtensions
 {
@@ -40,9 +42,23 @@ public static class IdentityExtensions
 
         services.AddAuthentication(options =>
         {
-            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultScheme = "SmartScheme";
             options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultAuthenticateScheme = "SmartScheme";
+        })
+        .AddPolicyScheme("SmartScheme", "JWT if present", options =>
+        {
+            options.ForwardDefaultSelector = context =>
+            {
+                var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
+                if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    return JwtBearerDefaults.AuthenticationScheme;
+
+                if (context.Request.Path.StartsWithSegments("/api"))
+                    return JwtBearerDefaults.AuthenticationScheme;
+
+                return JwtBearerDefaults.AuthenticationScheme;
+            };
         })
         .AddJwtBearer(options =>
         {
@@ -54,15 +70,28 @@ public static class IdentityExtensions
             {
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(key),
-
                 ValidateIssuer = true,
                 ValidIssuer = jwtSettings["Issuer"],
-
                 ValidateAudience = true,
                 ValidAudience = jwtSettings["Audience"],
-
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero
+            };
+
+            options.Events = new JwtBearerEvents
+            {
+                OnChallenge = context =>
+                {
+                    if (!context.Request.Path.StartsWithSegments("/api"))
+                        context.HandleResponse();
+                    return Task.CompletedTask;
+                },
+                OnAuthenticationFailed = context =>
+                {
+                    if (!context.Request.Path.StartsWithSegments("/api"))
+                        context.NoResult();
+                    return Task.CompletedTask;
+                }
             };
         });
 

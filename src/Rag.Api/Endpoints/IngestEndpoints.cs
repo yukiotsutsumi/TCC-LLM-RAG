@@ -1,15 +1,17 @@
-﻿using Rag.Core.Domain.DTOs.Ingest.Requests;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Rag.Core.Domain.DTOs.Ingest.Requests;
 using Rag.Core.Interfaces.Services;
 using System.ComponentModel.DataAnnotations;
 
-namespace Rag.App.Endpoints;
+namespace Rag.Api.Endpoints;
 
 public static class IngestEndpoints
 {
     public static IEndpointRouteBuilder MapIngestEndpoints(this IEndpointRouteBuilder routes)
     {
-        var group = routes.MapGroup("/api")
-                          .WithTags("Ingest");
+        var group = routes.MapGroup("/api").WithTags("Ingest");
 
         group.MapPost("/ingest-text", async (IngestTextBody body, IIngestionService ingestion, CancellationToken ct) =>
         {
@@ -18,7 +20,7 @@ public static class IngestEndpoints
             if (result.DocumentId == Guid.Empty)
                 return Results.BadRequest("Texto obrigatório.");
             return Results.Ok(result);
-        });
+        }).RequireAuthorization();
 
         group.MapPost("/upload", async (HttpRequest req, IIngestionService ingestion, CancellationToken ct) =>
         {
@@ -39,7 +41,7 @@ public static class IngestEndpoints
             var dto = new IngestTextRequest(title, source, text, model);
             var result = await ingestion.IngestTextAsync(dto, ct);
             return Results.Ok(result);
-        });
+        }).RequireAuthorization();
 
         return routes;
     }

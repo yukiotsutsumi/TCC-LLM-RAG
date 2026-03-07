@@ -1,8 +1,11 @@
-﻿using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Text.Json;
 
-namespace Rag.App.Endpoints.HealthCheck
+namespace Rag.Api.Endpoints.HealthCheck
 {
     public static class HealthEndpoints
     {
@@ -12,19 +15,19 @@ namespace Rag.App.Endpoints.HealthCheck
             {
                 Predicate = reg => true,
                 ResponseWriter = WriteResponse
-            });
+            }).RequireAuthorization();
 
             endpoints.MapHealthChecks("/health/live", new HealthCheckOptions
             {
                 Predicate = reg => reg.Tags.Contains("self"),
                 ResponseWriter = WriteResponse
-            });
+            }).RequireAuthorization();
 
             endpoints.MapHealthChecks("/health", new HealthCheckOptions
             {
                 Predicate = reg => true,
                 ResponseWriter = WriteResponse
-            });
+            }).RequireAuthorization();
 
             return endpoints;
         }

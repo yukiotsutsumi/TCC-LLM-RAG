@@ -1,0 +1,81 @@
+@page "/login"
+@rendermode InteractiveServer
+@using Rag.App.Components.Layout
+@using Rag.Core.Domain.DTOs.Auth.Request
+@layout EmptyLayout
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="login-container">
+    <div class="login-card">
+        <h2>RAG Chat</h2>
+        <EditForm Model="_model" OnValidSubmit="HandleLogin" FormName="LoginForm">
+            <DataAnnotationsValidator />
+            <div class="form-group">
+                <label>Usuário</label>
+                <InputText @bind-Value="_model.Username" class="form-control" />
+                <ValidationMessage For="() => _model.Username" />
+            </div>
+            <div class="form-group">
+                <label>Senha</label>
+                <InputText @bind-Value="_model.Password" type="password" class="form-control" />
+                <ValidationMessage For="() => _model.Password" />
+            </div>
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="alert-error">@_errorMessage</div>
+            }
+            <button type="submit" disabled="@_isLoading">
+                @(_isLoading ? "Entrando..." : "Entrar")
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private LoginRequest _model = new();
+    private string? _errorMessage;
+    private bool _isLoading;
+    private bool _isSubmitting;
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var alreadyAuth = await JS.InvokeAsync<bool>("checkAuth");
+        if (alreadyAuth)
+            Nav.NavigateTo(ReturnUrl ?? "/home", forceLoad: true);
+    }
+
+    private async Task HandleLogin()
+    {
+        if (_isSubmitting) return;
+        _isSubmitting = true;
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var success = await JS.InvokeAsync<bool>("loginUser",
+                _model.Username,
+                _model.Password,
+                ReturnUrl ?? "/home");
+
+            if (!success)
+                _errorMessage = "Usuário ou senha inválidos.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "Erro ao realizar login. Tente novamente.";
+            Console.Error.WriteLine($"Login error: {ex}");
+        }
+        finally
+        {
+            _isLoading = false;
+            _isSubmitting = false;
+        }
+    }
+}

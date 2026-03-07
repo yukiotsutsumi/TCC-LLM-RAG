@@ -1,9 +1,10 @@
 ﻿using Rag.Core.Domain.DTOs.Auth.Request;
+using Rag.Core.Domain.DTOs.Auth.Response;
 using Rag.Core.Interfaces.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
-namespace Rag.App.Endpoints;
+namespace Rag.Api.Endpoints;
 
 public static class AuthEndpoints
 {
@@ -27,7 +28,7 @@ public static class AuthEndpoints
             var ip = context.Connection.RemoteIpAddress?.ToString();
             var result = await auth.LoginAsync(request, ip);
 
-            if (!result.Success || result.Data == null)
+            if (!result.Success || result.Data == null || string.IsNullOrEmpty(result.Data.RefreshToken))
                 return Results.Unauthorized();
 
             context.Response.Cookies.Append(RefreshCookieName, result.Data.RefreshToken, new CookieOptions
@@ -38,11 +39,16 @@ public static class AuthEndpoints
                 Expires = result.Data.RefreshTokenExpiresAtUtc
             });
 
-            return Results.Ok(new
-            {
-                result.Data.AccessToken,
-                result.Data.AccessTokenExpiresAtUtc
-            });
+            return Results.Ok(new AuthResponse(
+                Success: true,
+                Message: "Login realizado com sucesso.",
+                Data: new AuthSuccessResponse(
+                    result.Data.AccessToken,
+                    result.Data.AccessTokenExpiresAtUtc,
+                    string.Empty,
+                    result.Data.RefreshTokenExpiresAtUtc
+                )
+            ));
         })
         .RequireRateLimiting("login")
         .AllowAnonymous();
@@ -51,9 +57,16 @@ public static class AuthEndpoints
         {
             var refreshToken = context.Request.Cookies[RefreshCookieName];
             var ip = context.Connection.RemoteIpAddress?.ToString();
-            var result = await auth.RefreshAsync(refreshToken ?? "", ip);
 
-            if (!result.Success || result.Data == null)
+            if (string.IsNullOrEmpty(refreshToken))
+            {
+                context.Response.Cookies.Delete(RefreshCookieName);
+                return Results.Unauthorized();
+            }
+
+            var result = await auth.RefreshAsync(refreshToken, ip);
+
+            if (!result.Success || result.Data == null || string.IsNullOrEmpty(result.Data.RefreshToken))
             {
                 context.Response.Cookies.Delete(RefreshCookieName);
                 return Results.Unauthorized();
@@ -67,11 +80,16 @@ public static class AuthEndpoints
                 Expires = result.Data.RefreshTokenExpiresAtUtc
             });
 
-            return Results.Ok(new
-            {
-                result.Data.AccessToken,
-                result.Data.AccessTokenExpiresAtUtc
-            });
+            return Results.Ok(new AuthResponse(
+                Success: true,
+                Message: "Token renovado.",
+                Data: new AuthSuccessResponse(
+                    result.Data.AccessToken,
+                    result.Data.AccessTokenExpiresAtUtc,
+                    string.Empty,
+                    result.Data.RefreshTokenExpiresAtUtc
+                )
+            ));
         })
         .RequireRateLimiting("refresh")
         .AllowAnonymous();

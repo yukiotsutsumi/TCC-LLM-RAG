@@ -1,8 +1,12 @@
-﻿using OpenTelemetry.Metrics;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
-namespace Rag.App.Extensions;
+namespace Rag.Api.Extensions;
 
 public static class ObservabilityExtensions
 {

@@ -1,4 +1,4 @@
-﻿using Rag.Core.Domain.DTOs.ResponseIA;
+﻿using Rag.Core.Domain.DTOs.ResponseAI;
 
 namespace Rag.Core.Domain.DTOs.Ask.Responses
 {

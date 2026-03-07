@@ -1,4 +1,4 @@
-﻿namespace Rag.Core.Domain.DTOs.ResponseIA
+﻿namespace Rag.Core.Domain.DTOs.ResponseAI
 {
     public enum StreamPartKind
     {

@@ -1,12 +1,14 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.5.2.0
+# Visual Studio Version 18
+VisualStudioVersion = 18.2.11415.280 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rag.App", "Rag.App\Rag.App.csproj", "{B0DE53F3-16BF-7F3D-CA16-93D4A6CF1F0C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rag.Core", "Rag.Core\Rag.Core.csproj", "{8A7D6CD6-09F7-5488-3CCD-9F00CD861838}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rag.Infrastructure", "Rag.Infrastructure\Rag.Infrastructure.csproj", "{498B0B49-8F6A-016A-75A5-D6B441D1B9C1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rag.Api", "Rag.Api\Rag.Api.csproj", "{5BE1694A-C1F0-9DDC-3AAA-B0D79BAFE26C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,6 +28,10 @@ Global
 		{498B0B49-8F6A-016A-75A5-D6B441D1B9C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{498B0B49-8F6A-016A-75A5-D6B441D1B9C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{498B0B49-8F6A-016A-75A5-D6B441D1B9C1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5BE1694A-C1F0-9DDC-3AAA-B0D79BAFE26C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5BE1694A-C1F0-9DDC-3AAA-B0D79BAFE26C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5BE1694A-C1F0-9DDC-3AAA-B0D79BAFE26C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5BE1694A-C1F0-9DDC-3AAA-B0D79BAFE26C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

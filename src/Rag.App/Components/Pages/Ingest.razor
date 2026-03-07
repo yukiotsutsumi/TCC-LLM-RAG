@@ -1,6 +1,12 @@
-﻿@page "/ingest"
+﻿@using Microsoft.AspNetCore.Authorization
 @using System.Net.Http.Json
+
+@attribute [Authorize]
+
+@page "/ingest"
+
 @inject HttpClient Http
+
 @rendermode InteractiveServer
 
 <h3>Ingestão de Texto</h3>

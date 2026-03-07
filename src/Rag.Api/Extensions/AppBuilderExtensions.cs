@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.HttpOverrides;
 using static Rag.App.Extensions.EnvironmentExtensions;
 
-namespace Rag.App.Extensions;
+namespace Rag.Api.Extensions;
 
 public static class AppBuilderExtensions
 {

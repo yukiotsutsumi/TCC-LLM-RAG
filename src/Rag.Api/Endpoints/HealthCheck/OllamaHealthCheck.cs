@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace Rag.App.Endpoints.HealthCheck;
+namespace Rag.Api.Endpoints.HealthCheck;
 
 public sealed class OllamaHealthCheck(IHttpClientFactory httpClientFactory, IConfiguration configuration) : IHealthCheck
 {

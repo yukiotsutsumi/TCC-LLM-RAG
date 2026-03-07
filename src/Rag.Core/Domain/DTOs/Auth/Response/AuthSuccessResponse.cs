@@ -3,7 +3,7 @@
     public record AuthSuccessResponse(
         string AccessToken,
         DateTime AccessTokenExpiresAtUtc,
-        string RefreshToken,
+        string? RefreshToken,
         DateTime RefreshTokenExpiresAtUtc
     );
 }

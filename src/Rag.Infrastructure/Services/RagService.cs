@@ -1,8 +1,6 @@
-﻿using Rag.Core.Domain.DTOs;
-using Rag.Core.Domain.DTOs.Ask.Requests;
+﻿using Rag.Core.Domain.DTOs.Ask.Requests;
 using Rag.Core.Domain.DTOs.Ask.Responses;
-using Rag.Core.Domain.DTOs.ResponseIA;
-using Rag.Core.Domain.Entities;
+using Rag.Core.Domain.DTOs.ResponseAI;
 using Rag.Core.Interfaces;
 using Rag.Core.Interfaces.Repositories;
 using Rag.Core.Interfaces.Services;

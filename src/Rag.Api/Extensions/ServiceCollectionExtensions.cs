@@ -1,7 +1,8 @@
 ﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Rag.App.Endpoints.HealthCheck;
+using Rag.Api.Endpoints.HealthCheck;
 using Rag.Core.Interfaces;
 using Rag.Core.Interfaces.Repositories;
 using Rag.Core.Interfaces.Services;
@@ -11,7 +12,7 @@ using Rag.Infrastructure.Llm;
 using Rag.Infrastructure.Services;
 using Rag.Infrastructure.Text;
 
-namespace Rag.App.Extensions;
+namespace Rag.Api.Extensions;
 
 public static class ServiceCollectionExtensions
 {

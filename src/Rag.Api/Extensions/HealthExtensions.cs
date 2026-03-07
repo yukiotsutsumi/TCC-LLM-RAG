@@ -1,7 +1,9 @@
-﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Rag.Api.Endpoints.HealthCheck;
 using Rag.App.Endpoints.HealthCheck;
 
-namespace Rag.App.Extensions;
+namespace Rag.Api.Extensions;
 
 public static class HealthExtensions
 {
