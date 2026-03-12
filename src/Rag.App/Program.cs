@@ -18,7 +18,19 @@ builder.Services.AddAuthentication("RagAuth")
         options.Cookie.SameSite = SameSiteMode.Strict;
         options.Events.OnRedirectToLogin = context =>
         {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            var isApiRequest = context.Request.Path.StartsWithSegments("/api")
+                || context.Request.Headers["Accept"].ToString().Contains("application/json")
+                && !context.Request.Headers["Accept"].ToString().Contains("text/html");
+
+            if (isApiRequest)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            }
+            else
+            {
+                context.Response.Redirect(context.RedirectUri);
+            }
+
             return Task.CompletedTask;
         };
     });

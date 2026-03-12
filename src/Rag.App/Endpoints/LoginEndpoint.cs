@@ -66,8 +66,13 @@ public static class LoginEndpoint
 
         app.MapPost("/account/logout", async (HttpContext ctx) =>
         {
+            Console.WriteLine(">>> LOGOUT ENDPOINT CHAMADO");
+            Console.WriteLine($">>> Cookies recebidos: {string.Join(", ", ctx.Request.Cookies.Keys)}");
+
             ctx.Response.Cookies.Delete("X-Refresh-Token");
             await ctx.SignOutAsync("RagAuth");
+
+            Console.WriteLine(">>> SignOut executado");
             return Results.Ok();
         })
         .AllowAnonymous();

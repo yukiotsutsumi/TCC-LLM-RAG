@@ -1,17 +1,16 @@
-﻿@using System
-@inject NavigationManager Nav
+﻿@inject NavigationManager Nav
+@inject IJSRuntime JS
 
 @code {
-    protected override void OnAfterRender(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (!firstRender) return;
+
+        var currentPath = Nav.ToBaseRelativePath(Nav.Uri);
+        if (!currentPath.StartsWith("login", StringComparison.OrdinalIgnoreCase))
         {
-            var uri = Nav.ToAbsoluteUri(Nav.Uri);
-            if (!uri.AbsolutePath.Contains("/login", StringComparison.OrdinalIgnoreCase))
-            {
-                var returnUrl = Uri.EscapeDataString(Nav.Uri);
-                Nav.NavigateTo($"/login?returnUrl={returnUrl}");
-            }
+            var returnUrl = Uri.EscapeDataString(Nav.Uri);
+            Nav.NavigateTo($"/login?returnUrl={returnUrl}", forceLoad: true);
         }
     }
 }

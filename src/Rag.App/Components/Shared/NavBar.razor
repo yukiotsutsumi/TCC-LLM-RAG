@@ -1,0 +1,125 @@
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<nav class="navbar navbar-expand-md">
+    <div class="container-fluid px-3">
+
+        <a class="navbar-brand" href="/home">
+            <div class="brand-icon">✦</div>
+            <span>RAG<em class="brand-dot">.</em>chat</span>
+        </a>
+
+        <button class="navbar-toggler border-0 ms-auto me-2"
+                type="button"
+                @onclick="ToggleMenu"
+                aria-label="Menu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="@(_menuOpen ? "collapse navbar-collapse show" : "collapse navbar-collapse")">
+            <AuthorizeView>
+                <Authorized>
+                    <ul class="navbar-nav mx-auto gap-1">
+                        <li class="nav-item">
+                            <a class="nav-link @(IsActive("/home") ? "active" : "")" href="/home">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link @(IsActive("/chat") ? "active" : "")" href="/chat">Chat</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link @(IsActive("/ingest") ? "active" : "")" href="/ingest">Ingestão</a>
+                        </li>
+                    </ul>
+
+                    <div class="position-relative ms-auto">
+                        <button class="user-pill" @onclick="ToggleUserMenu" type="button">
+                            <div class="user-avatar">@_userInitial</div>
+                            <span class="user-name d-none d-md-inline">@_userName</span>
+                            <span style="font-size:0.7rem; color:var(--rag-text-muted); margin-left:2px;">
+                                @(_userMenuOpen ? "▲" : "▼")
+                            </span>
+                        </button>
+
+                        @if (_userMenuOpen)
+                        {
+                            <div style="position:fixed;inset:0;z-index:99;"
+                                 @onclick="CloseUserMenu"></div>
+
+                            <div class="dropdown-menu show"
+                                 style="position:absolute;right:0;top:calc(100% + 6px);z-index:100;">
+                                <span class="dropdown-header">@_userName</span>
+                                <hr class="dropdown-divider" />
+                                <button class="dropdown-item text-danger"
+                                        type="button"
+                                        @onclick="HandleLogout"
+                                        @onclick:stopPropagation="true">
+                                    <span>⏻</span>
+                                    @(_isLoggingOut ? "Saindo..." : "Logout")
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </Authorized>
+
+                <NotAuthorized>
+                    <div class="d-flex gap-2 ms-auto">
+                        <a class="btn btn-ghost btn-sm" href="/login">Entrar</a>
+                        <a class="btn btn-primary btn-sm" href="/register">Criar conta</a>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </div>
+</nav>
+
+@code {
+    private string _userName     = "usuário";
+    private string _userInitial  = "U";
+    private bool   _menuOpen     = false;
+    private bool   _userMenuOpen = false;
+    private bool   _isLoggingOut = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user  = state.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            _userName = user.FindFirst("fullName")?.Value
+                     ?? user.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
+                     ?? user.Identity.Name
+                     ?? "usuário";
+
+            _userInitial = _userName.Length > 0
+                ? _userName[0].ToString().ToUpper()
+                : "U";
+        }
+    }
+
+    private void ToggleMenu()     => _menuOpen     = !_menuOpen;
+    private void ToggleUserMenu() => _userMenuOpen = !_userMenuOpen;
+    private void CloseUserMenu()  => _userMenuOpen = false;
+
+    private bool IsActive(string path) =>
+        Nav.Uri.Contains(path, StringComparison.OrdinalIgnoreCase);
+
+    private async Task HandleLogout()
+    {
+        if (_isLoggingOut) return;
+        _isLoggingOut  = true;
+        _userMenuOpen  = false;
+
+        try
+        {
+            await JS.InvokeVoidAsync("logoutUser");
+        }
+        catch
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+        }
+    }
+}

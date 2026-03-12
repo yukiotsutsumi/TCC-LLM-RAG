@@ -20,7 +20,6 @@ public class AuthServiceClient(
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
     {
         var response = await ApiClient.PostAsJsonAsync("api/auth/register", request, jsonOptions);
-        response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<AuthResponse>(jsonOptions)
                ?? throw new InvalidOperationException("Resposta inválida da API.");
     }

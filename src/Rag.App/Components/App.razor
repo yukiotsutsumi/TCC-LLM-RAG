@@ -1,14 +1,15 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using Rag.App.Components.Auth
 @using Rag.App.Components.Pages.Auth
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/theme.css" />
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="Rag.App.styles.css" />
     <ImportMap />
@@ -20,7 +21,11 @@
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)">
                 <Authorizing>
-                    <p>Carregando...</p>
+                    <div class="d-flex justify-content-center align-items-center" style="min-height:100vh;">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                    </div>
                 </Authorizing>
                 <NotAuthorized>
                     @if (context.User.Identity?.IsAuthenticated != true)
@@ -29,8 +34,10 @@
                     }
                     else
                     {
-                        <div class="alert alert-danger">
-                            Você não tem permissão para acessar esta página.
+                        <div class="d-flex justify-content-center align-items-center" style="min-height:100vh;">
+                            <div class="alert alert-danger">
+                                Você não tem permissão para acessar esta página.
+                            </div>
                         </div>
                     }
                 </NotAuthorized>
@@ -39,10 +46,16 @@
         </Found>
         <NotFound>
             <LayoutView Layout="@typeof(Layout.MainLayout)">
-                <p role="alert">Página não encontrada.</p>
+                <div class="text-center py-5">
+                    <h1 class="display-6 fw-bold mb-2" style="color: var(--rag-text);">404</h1>
+                    <p style="color: var(--rag-text-muted);">Página não encontrada.</p>
+                    <a href="/home" class="btn btn-primary btn-sm mt-2">Voltar ao início</a>
+                </div>
             </LayoutView>
         </NotFound>
     </Router>
+
+    <script src="lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="_framework/blazor.web.js"></script>
     <script src="app.js"></script>
 </body>

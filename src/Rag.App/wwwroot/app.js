@@ -19,6 +19,22 @@
     }
 };
 
+window.logoutUser = async function () {
+    console.log(">>> logoutUser chamado");
+    try {
+        const response = await fetch('/account/logout', {
+            method: 'POST',
+            credentials: 'include'
+        });
+        console.log(">>> logout response status:", response.status);
+    } catch (e) {
+        console.error(">>> logout fetch erro:", e);
+    } finally {
+        console.log(">>> redirecionando para /login");
+        window.location.href = '/login';
+    }
+};
+
 window.checkAuth = async function () {
     try {
         const response = await fetch('/account/check-auth', {

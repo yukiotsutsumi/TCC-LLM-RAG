@@ -1,0 +1,181 @@
+@page "/register"
+@rendermode InteractiveServer
+@using Rag.App.Components.Layout
+@using Rag.Core.Domain.DTOs.Auth.Request
+@using Rag.Core.Interfaces.Services
+@using System.ComponentModel.DataAnnotations
+@layout EmptyLayout
+@inject IAuthService AuthService
+@inject NavigationManager Nav
+
+<div class="auth-shell">
+    <div class="auth-card">
+
+        <div class="auth-logo">
+            <div class="auth-logo-icon">✦</div>
+            <span class="auth-logo-text">RAG<span>.</span>chat</span>
+        </div>
+
+        <h1 class="fs-5 fw-bold text-center mb-1" style="color: var(--rag-text);">
+            Criar conta
+        </h1>
+        <p class="text-center mb-4" style="font-size: 0.78rem; color: var(--rag-text-muted);">
+            Preencha os dados para criar seu acesso
+        </p>
+
+        @if (_registerSuccess)
+        {
+            <div class="alert alert-success d-flex align-items-center gap-2 fade-in">
+                <span>✓</span>
+                <div>
+                    <div class="fw-semibold">Conta criada com sucesso!</div>
+                    <div style="font-size:0.78rem; opacity:0.8;">Redirecionando para o login...</div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <EditForm Model="_model" OnValidSubmit="HandleRegister" FormName="RegisterForm">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3 slide-up stagger-1">
+                    <label class="form-label">Nome completo</label>
+                    <InputText @bind-Value="_model.FullName"
+                               class="form-control"
+                               placeholder="Seu nome" />
+                    <ValidationMessage For="() => _model.FullName" />
+                </div>
+
+                <div class="mb-3 slide-up stagger-2">
+                    <label class="form-label">Usuário</label>
+                    <InputText @bind-Value="_model.Username"
+                               class="form-control"
+                               placeholder="Seu nome de usuario" />
+                    <ValidationMessage For="() => _model.Username" />
+                </div>
+
+                <div class="mb-3 slide-up stagger-3">
+                    <label class="form-label">Email</label>
+                    <InputText @bind-Value="_model.Email"
+                               type="email"
+                               class="form-control"
+                               placeholder="Seu email" />
+                    <ValidationMessage For="() => _model.Email" />
+                </div>
+
+                <div class="mb-3 slide-up stagger-4">
+                    <label class="form-label">Senha</label>
+                    <InputText @bind-Value="_model.Password"
+                               type="password"
+                               class="form-control"
+                               placeholder="mín. 8 caracteres" />
+                    <div style="font-size:0.72rem; color:var(--rag-text-muted); margin-top:0.3rem;">
+                        Use letras maiúsculas, minúsculas, números e símbolos.
+                    </div>
+                    <ValidationMessage For="() => _model.Password" />
+                </div>
+
+                <div class="mb-3 slide-up stagger-5">
+                    <label class="form-label">Confirmar senha</label>
+                    <InputText @bind-Value="_model.ConfirmPassword"
+                               type="password"
+                               class="form-control"
+                               placeholder="••••••••" />
+                    <ValidationMessage For="() => _model.ConfirmPassword" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <div class="alert alert-danger d-flex align-items-center gap-2 py-2 mb-3">
+                        <span>⚠</span> @_errorMessage
+                    </div>
+                }
+
+                <button type="submit"
+                        class="btn btn-primary w-100 @(_isLoading ? "is-loading" : "")"
+                        disabled="@_isLoading">
+                    @(_isLoading ? "" : "Criar conta")
+                </button>
+            </EditForm>
+        }
+
+        <div class="auth-divider my-3">ou</div>
+
+        <p class="text-center mb-0" style="font-size: 0.82rem; color: var(--rag-text-muted);">
+            Já tem uma conta?
+            <a href="/login" class="fw-semibold">Entrar</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    private RegisterFormModel _model = new();
+    private string? _errorMessage;
+    private bool _isLoading;
+    private bool _isSubmitting;
+    private bool _registerSuccess;
+
+    private async Task HandleRegister()
+    {
+        if (_isSubmitting) return;
+        _isSubmitting = true;
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var request = new RegisterRequest(
+                _model.Username,
+                _model.Email,
+                _model.Password,
+                _model.FullName
+            );
+
+            var result = await AuthService.RegisterAsync(request);
+
+            if (!result.Success)
+            {
+                _errorMessage = result.Message ?? "Erro ao criar conta.";
+                return;
+            }
+
+            _registerSuccess = true;
+            StateHasChanged();
+            Nav.NavigateTo("/login?registered=true", forceLoad: false);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "Erro ao criar conta. Tente novamente.";
+            Console.Error.WriteLine($"Register error: {ex}");
+        }
+        finally
+        {
+            _isLoading = false;
+            _isSubmitting = false;
+        }
+    }
+
+    private sealed class RegisterFormModel
+    {
+        [Required(ErrorMessage = "Nome obrigatório")]
+        [MinLength(2, ErrorMessage = "Nome muito curto")]
+        public string FullName { get; set; } = "";
+
+        [Required(ErrorMessage = "Usuário obrigatório")]
+        [MinLength(3, ErrorMessage = "Mínimo 3 caracteres")]
+        [RegularExpression(@"^[a-zA-Z0-9_]+$", ErrorMessage = "Apenas letras, números e _")]
+        public string Username { get; set; } = "";
+
+        [Required(ErrorMessage = "Email obrigatório")]
+        [EmailAddress(ErrorMessage = "Email inválido")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Senha obrigatória")]
+        [MinLength(8, ErrorMessage = "Mínimo 8 caracteres")]
+        public string Password { get; set; } = "";
+
+        [Required(ErrorMessage = "Confirmação obrigatória")]
+        [Compare(nameof(Password), ErrorMessage = "Senhas não coincidem")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

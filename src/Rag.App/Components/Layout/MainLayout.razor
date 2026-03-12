@@ -1,15 +1,10 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using Rag.App.Components.Shared
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<NavBar />
 
-    <main>
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
+<div class="page-content">
+    @Body
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
@@ -17,3 +12,11 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+<style>
+    .page-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+    }
+</style>
