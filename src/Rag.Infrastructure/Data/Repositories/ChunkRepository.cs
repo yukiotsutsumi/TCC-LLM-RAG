@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Pgvector;
 using Rag.Core.Domain.Entities;
 using Rag.Core.Interfaces.Repositories;
@@ -8,27 +8,25 @@ namespace Rag.Infrastructure.Data.Repositories;
 
 public class ChunkRepository(AppDbContext db) : IChunkRepository
 {
-    private const int EmbeddingDim = 1024; // ajuste se sua dimensão mudar
-    private const int MaxK = 500;          // proteção para consultas muito grandes
+    private const int EmbeddingDim = 1024;
+    private const int MaxK = 500;
 
     public async Task InsertManyAsync(IEnumerable<Chunk> chunks, CancellationToken ct = default)
     {
         foreach (var c in chunks)
-        {
             ValidateEmbedding(c.Embedding);
-        }
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-
         await db.Chunks.AddRangeAsync(chunks, ct);
         await db.SaveChangesAsync(ct);
-
         await tx.CommitAsync(ct);
     }
 
-    public async Task UpdateProjectionAsync(IEnumerable<(Guid ChunkId, double X, double Y)> points, CancellationToken ct = default)
+    public async Task UpdateProjectionAsync(
+        IEnumerable<(Guid ChunkId, double X, double Y)> points,
+        CancellationToken ct = default)
     {
-        var ids = points.Select(p => p.ChunkId).ToHashSet();
+        var ids    = points.Select(p => p.ChunkId).ToHashSet();
         var lookup = points.ToDictionary(p => p.ChunkId, p => (p.X, p.Y));
 
         var toUpdate = await db.Chunks
@@ -67,71 +65,72 @@ public class ChunkRepository(AppDbContext db) : IChunkRepository
 
         var op = MetricToSqlOperator(metric);
 
+        // ← Score adicionado: distância cosine entre o chunk e a query
         var sql = $@"
         SELECT 
-            c.""Id""           AS ""Id"",
-            c.""DocumentId""   AS ""DocumentId"",
-            c.""ChunkIndex""   AS ""ChunkIndex"",
-            c.""Content""      AS ""Content"",
-            c.""Embedding""    AS ""Embedding"",
-            c.""MetadataJson"" AS ""MetadataJson"",
-            c.""UmapX""        AS ""UmapX"",
-            c.""UmapY""        AS ""UmapY"",
-            d.""Title""        AS ""Title"",
-            d.""Source""       AS ""Source""
+            c.""Id""                          AS ""Id"",
+            c.""DocumentId""                  AS ""DocumentId"",
+            c.""ChunkIndex""                  AS ""ChunkIndex"",
+            c.""Content""                     AS ""Content"",
+            c.""Embedding""                   AS ""Embedding"",
+            c.""MetadataJson""                AS ""MetadataJson"",
+            c.""UmapX""                       AS ""UmapX"",
+            c.""UmapY""                       AS ""UmapY"",
+            d.""Title""                       AS ""Title"",
+            d.""Source""                      AS ""Source"",
+            (c.""Embedding"" {op} @p0)        AS ""Score""
         FROM ""Chunks"" c
         JOIN ""Documents"" d ON d.""Id"" = c.""DocumentId""
         ORDER BY c.""Embedding"" {op} @p0
         LIMIT @p1;";
-        
+
         var results = await db.Set<KnnRow>()
             .FromSqlRaw(sql, queryEmbedding, k)
             .AsNoTracking()
             .ToListAsync(ct);
 
-        // Projeta para DTO
-        var list = results.Select(r => new KnnResultDto(
+        return results.Select(r => new KnnResultDto(
             new Chunk
             {
-                Id = r.Id,
-                DocumentId = r.DocumentId,
-                ChunkIndex = r.ChunkIndex,
-                Content = r.Content,
-                Embedding = r.Embedding,
+                Id           = r.Id,
+                DocumentId   = r.DocumentId,
+                ChunkIndex   = r.ChunkIndex,
+                Content      = r.Content,
+                Embedding    = r.Embedding,
                 MetadataJson = r.MetadataJson,
-                UmapX = r.UmapX,
-                UmapY = r.UmapY
+                UmapX        = r.UmapX,
+                UmapY        = r.UmapY
             },
             r.Title,
-            r.Source
+            r.Source,
+            r.Score  // ← repassa o score
         )).ToList();
-
-        return list;
     }
-
-    // Helpers
 
     private static string MetricToSqlOperator(KnnMetric metric) => metric switch
     {
-        KnnMetric.Cosine => "<=>",       // cosine distance
-        KnnMetric.L2 => "<->",           // euclidean (L2)
-        KnnMetric.InnerProduct => "<#>", // inner product
-        _ => "<=>"
+        KnnMetric.Cosine      => "<=>",
+        KnnMetric.L2          => "<->",
+        KnnMetric.InnerProduct => "<#>",
+        _                     => "<=>"
     };
-    private static void ValidateEmbedding(Vector? vec)  
-    {  
-        if (vec is null)  
-            throw new ArgumentException("Embedding não pode ser nulo.");  
-    
-        var len = vec.ToArray().Length;  
-        if (len != EmbeddingDim)  
-            throw new ArgumentException($"Embedding com dimensão inválida: esperado {EmbeddingDim}, recebido {len}.");  
-    }  
-    
-    private static void ValidateEmbedding(Vector vec, int expectedDim)  
-    {  
-        var len = vec.ToArray().Length;  
-        if (len != expectedDim)  
-            throw new ArgumentException($"Embedding com dimensão inválida: esperado {expectedDim}, recebido {len}.");  
+
+    private static void ValidateEmbedding(Vector? vec)
+    {
+        if (vec is null)
+            throw new ArgumentException("Embedding não pode ser nulo.");
+
+        var len = vec.ToArray().Length;
+        if (len != EmbeddingDim)
+            throw new ArgumentException(
+                $"Embedding com dimensão inválida: esperado {EmbeddingDim}, recebido {len}.");
+    }
+
+    private static void ValidateEmbedding(Vector vec, int expectedDim)
+    {
+        var len = vec.ToArray().Length;
+        if (len != expectedDim)
+            throw new ArgumentException(
+                $"Embedding com dimensão inválida: esperado {expectedDim}, recebido {len}.");
     }
 }

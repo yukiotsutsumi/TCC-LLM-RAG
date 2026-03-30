@@ -1,81 +1,179 @@
-﻿@using Microsoft.AspNetCore.Authorization
+@page "/chat"
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@using Microsoft.AspNetCore.Authorization
 @using Rag.Core.Domain.DTOs
 @using Rag.Core.Domain.DTOs.Ask.Requests
 @using Rag.Core.Domain.DTOs.ResponseAI
+@using Rag.Core.Interfaces.Services
 
-@attribute [Authorize]
+@inject IRagService RagService
+@inject IJSRuntime JS
 
-@page "/chat"
+<div class="chat-container">
 
-@rendermode InteractiveServer
+    <div class="chat-header">
+        <i class="bi bi-robot me-2"></i>
+        <span>Assistente IA</span>
+        @if (isLoading)
+        {
+            <span class="ms-auto d-flex align-items-center gap-2 chat-thinking">
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                pensando...
+            </span>
+        }
+    </div>
 
-@inject Rag.Core.Interfaces.Services.IRagService RagService
+    <div class="chat-messages" id="chatWindow">
+        @foreach (var msg in _messages)
+        {
+            <div class="message-wrapper @(msg.IsUser ? "user" : "assistant")">
+                <div class="message-bubble">
+                    <div class="message-content">
+                        @if (msg.IsUser)
+                        {
+                            @msg.Content
+                        }
+                        else if (msg.IsStreaming && string.IsNullOrEmpty(msg.Content))
+                        {
+                            <div class="typing-indicator">
+                                <span></span><span></span><span></span>
+                            </div>
+                        }
+                        else
+                        {
+                            @((MarkupString)msg.Content.Replace("\n", "<br/>"))
+                            @if (msg.IsStreaming)
+                            {
+                                <span class="stream-cursor">▋</span>
+                            }
+                        }
+                    </div>
 
-<h3>Chat</h3>
+                    @if (!msg.IsStreaming && msg.Sources?.Any() == true)
+                    {
+                        <div class="message-sources">
+                            <div class="sources-label">Fontes</div>
+                            @foreach (var s in msg.Sources)
+                            {
+                                <div class="source-item-inline">
+                                    <strong>@s.Title</strong>
+                                    <small> — @s.Source</small>
+                                    <div class="small mt-1 source-snippet">@s.Snippet</div>
+                                </div>
+                            }
+                        </div>
+                    }
 
-<textarea class="form-control mb-2" rows="3" @bind="question"></textarea>
+                    @if (!msg.IsStreaming)
+                    {
+                        <div class="message-footer">
+                            <small>@msg.Timestamp.ToString("HH:mm")</small>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
 
-<div class="d-flex gap-2 mb-3">
-    <button class="btn btn-success" @onclick="AskRag" disabled="@isLoading">
-        Perguntar (stream)
-    </button>
+    @* Status *@
+    @if (!string.IsNullOrWhiteSpace(status) && status != "Concluído")
+    {
+        <div class="chat-status">
+            <small>@status</small>
+        </div>
+    }
 
-    <button class="btn btn-secondary" @onclick="Cancel" disabled="@isNotLoading">
-        Cancelar
-    </button>
-</div>
-
-@if (!string.IsNullOrWhiteSpace(status))
-{
-    <div class="alert alert-info">@status</div>
-}
-
-@if (!string.IsNullOrEmpty(answer))
-{
-    <div class="card mt-3">
-        <div class="card-header">Resposta</div>
-        <div class="card-body">
-            <pre class="mb-0">@answer</pre>
+    @* Input *@
+    <div class="chat-input-area">
+        <div class="input-wrapper">
+            <textarea class="chat-textarea"
+                      placeholder="Digite sua mensagem... (Enter para enviar, Shift+Enter para nova linha)"
+                      @bind="question"
+                      @bind:event="oninput"
+                      @onkeydown="HandleKeyDown"
+                      rows="1"
+                      disabled="@isLoading"></textarea>
+            <div class="input-actions">
+                @if (isLoading)
+                {
+                    <button class="btn btn-outline-danger btn-sm" @onclick="Cancel">
+                        <i class="bi bi-stop-fill"></i>
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-primary btn-sm send-btn"
+                            @onclick="AskRag"
+                            disabled="@(string.IsNullOrWhiteSpace(question))">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                }
+            </div>
         </div>
     </div>
-}
 
-@if (sources?.Any() == true)
-{
-    <div class="mt-3">
-        <h5>Fontes</h5>
-        <ul class="list-group">
-            @foreach (var s in sources)
-            {
-                <li class="list-group-item">
-                    <div><strong>@s.Title</strong> <small class="text-muted">— @s.Source</small></div>
-                    <div class="text-muted small">@s.Snippet</div>
-                </li>
-            }
-        </ul>
-    </div>
-}
+</div>
 
 @code {
     private string question = "";
-    private string answer = "";
-    private string? status;
+    private string status = "";
     private bool isLoading;
-    private bool isNotLoading => !isLoading;
     private CancellationTokenSource? cts;
-    private List<SourceRef>? sources;
+    private List<ChatMessage> _messages = new();
+
+    private const int RenderIntervalMs = 50;
+    private DateTime _lastRender = DateTime.MinValue;
+
+    private class ChatMessage
+    {
+        public string Content { get; set; } = "";
+        public bool IsUser { get; set; }
+        public bool IsStreaming { get; set; }
+        public List<SourceRef>? Sources { get; set; }
+        public DateTime Timestamp { get; set; } = DateTime.Now;
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+            await AskRag();
+    }
 
     private async Task AskRag()
     {
-        answer = "";
-        sources = new List<SourceRef>();
-        status = "Iniciando...";
+        var userQuestion = question?.Trim();
+        if (string.IsNullOrWhiteSpace(userQuestion) || isLoading) return;
+
+        status = "Aguardando resposta...";
         isLoading = true;
-        StateHasChanged();
+
+        question = "";
+
+        _messages.Add(new ChatMessage
+        {
+            Content = userQuestion,
+            IsUser = true,
+            Timestamp = DateTime.Now
+        });
+
+        var assistantMsg = new ChatMessage
+        {
+            IsUser = false,
+            IsStreaming = true,
+            Content = "",
+            Sources = null
+        };
+        _messages.Add(assistantMsg);
+
+        await InvokeAsync(StateHasChanged);
+        await ScrollToBottom();
 
         cts = new CancellationTokenSource();
-
-        var req = new AskRequest { Question = question, K = 5 };
+        var req = new AskRequest { Question = userQuestion, K = 5 };
 
         try
         {
@@ -83,37 +181,57 @@
             {
                 if (part.Kind == StreamPartKind.Delta && !string.IsNullOrEmpty(part.Delta))
                 {
-                    answer += part.Delta;
-                    StateHasChanged();
+                    assistantMsg.Content += part.Delta;
+                    status = "Gerando resposta...";
+
+                    var now = DateTime.UtcNow;
+                    if ((now - _lastRender).TotalMilliseconds >= RenderIntervalMs)
+                    {
+                        _lastRender = now;
+                        await InvokeAsync(StateHasChanged);
+                        await ScrollToBottom();
+                    }
                 }
                 else if (part.Kind == StreamPartKind.Finished && part.Sources != null)
                 {
-                    sources = part.Sources.ToList();
-                    break;
+                    assistantMsg.Sources = part.Sources.ToList();
                 }
             }
-
             status = "Concluído";
         }
         catch (OperationCanceledException)
         {
+            assistantMsg.Content += " [cancelado]";
             status = "Cancelado";
         }
         catch (Exception ex)
         {
-            status = $"Erro: {ex.Message}";
+            assistantMsg.Content = $"Erro: {ex.Message}";
+            status = "Erro";
         }
         finally
         {
+            assistantMsg.IsStreaming = false;
+            assistantMsg.Timestamp = DateTime.Now;
             isLoading = false;
+
             cts?.Dispose();
             cts = null;
-            StateHasChanged();
+
+            await InvokeAsync(StateHasChanged);
+            await ScrollToBottom();
         }
     }
 
-    private void Cancel()
+    private void Cancel() => cts?.Cancel();
+
+    private async Task ScrollToBottom()
     {
-        cts?.Cancel();
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                "var el = document.getElementById('chatWindow'); if(el) el.scrollTop = el.scrollHeight;");
+        }
+        catch { }
     }
 }

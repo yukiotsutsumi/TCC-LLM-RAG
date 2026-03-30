@@ -78,15 +78,18 @@ builder.Services.AddScoped<IAuthService>(sp =>
         sp.GetRequiredService<IHttpContextAccessor>()
     ));
 
-builder.Services.AddScoped<IRagService>(sp =>
-    new RagServiceClient(
+builder.Services.AddScoped<IRagService>(sp => new RagServiceClient(
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("RagApi"),
-        sp.GetRequiredService<JsonSerializerOptions>()));
+        sp.GetRequiredService<JsonSerializerOptions>(),
+        sp.GetRequiredService<IHttpContextAccessor>()
+    ));
 
 builder.Services.AddScoped<IIngestionService>(sp =>
     new IngestionServiceClient(
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("RagApi"),
-        sp.GetRequiredService<JsonSerializerOptions>()));
+        sp.GetRequiredService<JsonSerializerOptions>(),
+        sp.GetRequiredService<IHttpContextAccessor>()
+    ));
 
 var app = builder.Build();
 

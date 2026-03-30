@@ -1,0 +1,248 @@
+/* ── Layout ─────────────────────────────────────────────────── */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 120px);
+    max-width: 1000px;
+    margin: 0 auto;
+    background: var(--rag-surface);
+    border: 1px solid var(--rag-border);
+    border-radius: var(--rag-radius-xl);
+    box-shadow: var(--rag-shadow-lg);
+    overflow: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.chat-header {
+    padding: 1.25rem 1.5rem;
+    background: var(--rag-surface-2);
+    border-bottom: 1px solid var(--rag-border);
+    font-weight: 700;
+    color: var(--rag-text);
+    display: flex;
+    align-items: center;
+}
+
+.chat-thinking {
+    font-size: 0.75rem;
+    color: var(--rag-text-muted);
+    font-weight: 400;
+}
+
+/* ── Mensagens ──────────────────────────────────────────────── */
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    background: var(--rag-bg);
+}
+
+.message-wrapper {
+    display: flex;
+    width: 100%;
+}
+
+.message-wrapper.user      { justify-content: flex-end; }
+.message-wrapper.assistant { justify-content: flex-start; }
+
+.message-bubble {
+    max-width: 80%;
+    padding: 0.85rem 1.1rem;
+    border-radius: var(--rag-radius-lg);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    position: relative;
+}
+
+.user .message-bubble {
+    background: var(--rag-primary);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 4px 12px var(--rag-primary-glow);
+}
+
+.assistant .message-bubble {
+    background: var(--rag-surface-2);
+    color: var(--rag-text);
+    border: 1px solid var(--rag-border);
+    border-bottom-left-radius: 4px;
+}
+
+.message-footer {
+    margin-top: 6px;
+    font-size: 0.7rem;
+    color: var(--rag-text-muted);
+    text-align: right;
+}
+
+/* ── Cursor piscando durante stream ─────────────────────────── */
+.stream-cursor {
+    display: inline-block;
+    color: var(--rag-primary);
+    animation: cursorBlink 0.8s step-end infinite;
+    margin-left: 1px;
+    font-weight: 300;
+}
+
+@keyframes cursorBlink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+}
+
+/* ── Dots no header (pensando) ──────────────────────────────── */
+.typing-dot {
+    width: 5px;
+    height: 5px;
+    background: var(--rag-primary);
+    border-radius: 50%;
+    display: inline-block;
+    animation: dotPulse 1s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotPulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+    50%       { opacity: 1;   transform: scale(1.1); }
+}
+
+/* ── Dots na bolha (aguardando primeiro token) ──────────────── */
+.typing-indicator {
+    display: flex;
+    gap: 5px;
+    padding: 4px 2px;
+    align-items: center;
+}
+
+.typing-indicator span {
+    width: 7px;
+    height: 7px;
+    background: var(--rag-text-muted);
+    border-radius: 50%;
+    animation: bounce 1.2s infinite ease-in-out both;
+}
+
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0s; }
+
+@keyframes bounce {
+    0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; }
+    40%            { transform: scale(1.0); opacity: 1; }
+}
+
+/* ── Status ─────────────────────────────────────────────────── */
+.chat-status {
+    padding: 0.5rem 1.5rem;
+    background: var(--rag-surface-2);
+    border-top: 1px solid var(--rag-border);
+    font-size: 0.75rem;
+    color: var(--rag-info);
+}
+
+/* ── Fontes ─────────────────────────────────────────────────── */
+.chat-sources {
+    padding: 1rem 1.5rem;
+    background: var(--rag-surface-2);
+    border-top: 1px solid var(--rag-border);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.source-item {
+    padding: 0.75rem;
+    background: var(--rag-surface-3);
+    border: 1px solid var(--rag-border);
+    border-radius: var(--rag-radius);
+    margin-bottom: 0.5rem;
+    border-left: 4px solid var(--rag-primary);
+}
+
+/* ── Input ──────────────────────────────────────────────────── */
+.chat-input-area {
+    padding: 1.25rem 1.5rem;
+    background: var(--rag-surface-2);
+    border-top: 1px solid var(--rag-border);
+}
+
+.input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.75rem;
+    background: var(--rag-surface-3);
+    border: 1px solid var(--rag-border-light);
+    border-radius: var(--rag-radius-lg);
+    padding: 0.6rem 1rem;
+    transition: var(--rag-transition);
+}
+
+.input-wrapper:focus-within {
+    border-color: var(--rag-primary);
+    box-shadow: 0 0 0 3px var(--rag-primary-dim);
+}
+
+.chat-textarea {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--rag-text);
+    resize: none;
+    outline: none;
+    padding: 0.4rem 0;
+    font-size: 0.9rem;
+    max-height: 150px;
+}
+
+.chat-textarea::placeholder {
+    color: var(--rag-text-subtle);
+}
+
+/* ── Mobile ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .chat-container {
+        height: calc(100vh - 60px);
+        border-radius: 0;
+        border: none;
+    }
+
+    .message-bubble {
+        max-width: 90%;
+    }
+}
+
+/* ── Fontes dentro da bolha ─────────────────────────────────── */
+.message-sources {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--rag-border);
+}
+
+.sources-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--rag-text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.source-item-inline {
+    padding: 0.5rem 0.65rem;
+    background: var(--rag-surface-3);
+    border: 1px solid var(--rag-border);
+    border-left: 3px solid var(--rag-primary);
+    border-radius: var(--rag-radius);
+    margin-bottom: 0.4rem;
+    font-size: 0.78rem;
+    color: var(--rag-text);
+}
+
+.source-snippet {
+    color: var(--rag-text-muted);
+    font-size: 0.72rem;
+    line-height: 1.5;
+}

@@ -1,13 +1,13 @@
 ﻿@using Microsoft.AspNetCore.Authorization
-@using System.Net.Http.Json
+@using Rag.Core.Domain.DTOs.Ingest.Requests
+@using Rag.Core.Domain.DTOs.Ingest.Responses
+@using Rag.Core.Interfaces.Services
 
 @attribute [Authorize]
-
 @page "/ingest"
-
-@inject HttpClient Http
-
 @rendermode InteractiveServer
+
+@inject IIngestionService IngestionService
 
 <h3>Ingestão de Texto</h3>
 
@@ -26,7 +26,9 @@
     <textarea class="form-control" rows="10" @bind="text"></textarea>
 </div>
 
-<button type="button" class="btn btn-primary" @onclick="IngestAsync" disabled="@isLoading">Ingerir</button>
+<button type="button" class="btn btn-primary" @onclick="IngestAsync" disabled="@isLoading">
+    Ingerir
+</button>
 
 @if (!string.IsNullOrWhiteSpace(status))
 {
@@ -50,23 +52,31 @@
 
     private async Task IngestAsync()
     {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            status = "Texto não pode ser vazio.";
+            return;
+        }
+
         try
         {
             isLoading = true;
             status = "Enviando para ingestão...";
-            IngestTextRequest? req = new IngestTextRequest(title, source, text);
-            HttpResponseMessage? httpRes = await Http.PostAsJsonAsync("/api/ingest-text", req);
-            httpRes.EnsureSuccessStatusCode();
-            result = await httpRes.Content.ReadFromJsonAsync<IngestTextResponse>();
-            status = "OK";
+
+            var req = new IngestTextRequest(title, source, text);
+            result = await IngestionService.IngestTextAsync(req);
+
+            status = result.ChunksSaved > 0
+                ? $"Concluído! {result.ChunksSaved} chunks salvos."
+                : "Aviso: nenhum chunk foi salvo.";
         }
         catch (Exception ex)
         {
             status = $"Erro: {ex.Message}";
         }
-        finally { isLoading = false; }
+        finally
+        {
+            isLoading = false;
+        }
     }
-
-    public record IngestTextRequest(string Title, string Source, string Text);
-    public record IngestTextResponse(Guid DocumentId, int ChunksSaved);
 }
