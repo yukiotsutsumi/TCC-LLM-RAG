@@ -45,3 +45,35 @@ window.checkAuth = async function () {
         return false;
     }
 };
+
+window._chatMessages = [];
+
+window.pushChatMessage = function (role, content) {
+    window._chatMessages.push({ role, content });
+};
+
+window.clearChatMessages = function () {
+    window._chatMessages = [];
+};
+
+window.exportChat = function (filename) {
+    const lines = [`RAG.chat — Conversa exportada`, `Data: ${new Date().toLocaleString('pt-BR')}`, ''];
+    for (const m of window._chatMessages) {
+        lines.push(`${m.role === 'user' ? 'Você' : 'Assistente'}: ${m.content}`);
+    }
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 100);
+};

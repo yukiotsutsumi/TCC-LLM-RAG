@@ -3,6 +3,7 @@
 @attribute [Authorize]
 
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
 @using Rag.Core.Domain.DTOs
 @using Rag.Core.Domain.DTOs.Ask.Requests
 @using Rag.Core.Domain.DTOs.ResponseAI
@@ -10,9 +11,22 @@
 
 @inject IRagService RagService
 @inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
 
 <div class="chat-container">
 
+    @* Aviso de conversa longa *@
+    @if (_messages.Count(m => !m.IsUser) >= LongConversationThreshold)
+    {
+        <div class="chat-long-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Sua conversa está ficando longa. Recomendamos
+            <button class="btn-link-inline" @onclick="NewConversation">iniciar uma nova conversa</button>
+            para respostas de maior qualidade.
+        </div>
+    }
+
+    @* Header *@
     <div class="chat-header">
         <i class="bi bi-robot me-2"></i>
         <span>Assistente IA</span>
@@ -25,9 +39,35 @@
                 pensando...
             </span>
         }
+        else if (_messages.Any())
+        {
+            <div class="ms-auto d-flex gap-2">
+                <button class="btn btn-ghost btn-sm"
+                        @onclick="ExportChat"
+                        title="Exportar conversa">
+                    <i class="bi bi-download me-1"></i>Exportar
+                </button>
+                <button class="btn btn-ghost btn-sm"
+                        @onclick="NewConversation"
+                        title="Nova conversa">
+                    <i class="bi bi-plus-circle me-1"></i>Nova conversa
+                </button>
+            </div>
+        }
     </div>
 
+    @* Mensagens *@
     <div class="chat-messages" id="chatWindow">
+
+        @* Estado vazio *@
+        @if (!_messages.Any())
+        {
+            <div class="chat-empty">
+                <i class="bi bi-chat-dots"></i>
+                <p>Faça uma pergunta para começar</p>
+            </div>
+        }
+
         @foreach (var msg in _messages)
         {
             <div class="message-wrapper @(msg.IsUser ? "user" : "assistant")">
@@ -53,6 +93,7 @@
                         }
                     </div>
 
+                    @* Fontes dentro da bolha *@
                     @if (!msg.IsStreaming && msg.Sources?.Any() == true)
                     {
                         <div class="message-sources">
@@ -108,7 +149,8 @@
                 {
                     <button class="btn btn-primary btn-sm send-btn"
                             @onclick="AskRag"
-                            disabled="@(string.IsNullOrWhiteSpace(question))">
+                            disabled="@(string.IsNullOrWhiteSpace(question))"
+                            title="Enviar">
                         <i class="bi bi-send-fill"></i>
                     </button>
                 }
@@ -126,6 +168,8 @@
     private List<ChatMessage> _messages = new();
 
     private const int RenderIntervalMs = 50;
+    private const int MaxHistoryTurns = 5;        // trocas enviadas para a IA
+    private const int LongConversationThreshold = 5; // respostas até mostrar aviso
     private DateTime _lastRender = DateTime.MinValue;
 
     private class ChatMessage
@@ -137,10 +181,32 @@
         public DateTime Timestamp { get; set; } = DateTime.Now;
     }
 
+    private void NewConversation()
+    {
+        if (isLoading) return;
+        _messages.Clear();
+        question = "";
+        status = "";
+        _ = JS.InvokeVoidAsync("clearChatMessages");
+    }
+
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !e.ShiftKey)
             await AskRag();
+    }
+
+    private List<HistoryMessage> BuildHistory()
+    {
+        // Pega as últimas MaxHistoryTurns trocas completas (user + assistant)
+        // Exclui a última mensagem do assistente se ainda estiver streamando
+        return _messages
+            .Where(m => !m.IsStreaming)
+            .TakeLast(MaxHistoryTurns * 2)
+            .Select(m => new HistoryMessage(
+                m.IsUser ? "user" : "assistant",
+                m.Content))
+            .ToList();
     }
 
     private async Task AskRag()
@@ -150,22 +216,22 @@
 
         status = "Aguardando resposta...";
         isLoading = true;
-
         question = "";
 
         _messages.Add(new ChatMessage
         {
-            Content = userQuestion,
-            IsUser = true,
+            Content   = userQuestion,
+            IsUser    = true,
             Timestamp = DateTime.Now
         });
+        await JS.InvokeVoidAsync("pushChatMessage", "user", userQuestion);
 
         var assistantMsg = new ChatMessage
         {
-            IsUser = false,
+            IsUser     = false,
             IsStreaming = true,
-            Content = "",
-            Sources = null
+            Content    = "",
+            Sources    = null
         };
         _messages.Add(assistantMsg);
 
@@ -173,7 +239,18 @@
         await ScrollToBottom();
 
         cts = new CancellationTokenSource();
-        var req = new AskRequest { Question = userQuestion, K = 5 };
+
+        // Histórico construído antes de adicionar a mensagem atual
+        var history = BuildHistory()
+            .Where(m => m.Content != userQuestion) // exclui a pergunta atual
+            .ToList();
+
+        var req = new AskRequest
+        {
+            Question = userQuestion,
+            K        = 5,
+            History  = history
+        };
 
         try
         {
@@ -197,6 +274,7 @@
                     assistantMsg.Sources = part.Sources.ToList();
                 }
             }
+
             status = "Concluído";
         }
         catch (OperationCanceledException)
@@ -212,15 +290,20 @@
         finally
         {
             assistantMsg.IsStreaming = false;
-            assistantMsg.Timestamp = DateTime.Now;
+            assistantMsg.Timestamp  = DateTime.Now;
+            await JS.InvokeVoidAsync("pushChatMessage", "assistant", assistantMsg.Content);
             isLoading = false;
-
             cts?.Dispose();
             cts = null;
-
             await InvokeAsync(StateHasChanged);
             await ScrollToBottom();
         }
+    }
+
+    private async Task ExportChat()
+    {
+        var filename = $"ragchat_{DateTime.Now:yyyyMMdd_HHmm}.txt";
+        await JS.InvokeVoidAsync("exportChat", filename);
     }
 
     private void Cancel() => cts?.Cancel();

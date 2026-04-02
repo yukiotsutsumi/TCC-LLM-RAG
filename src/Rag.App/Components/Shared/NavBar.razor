@@ -1,5 +1,6 @@
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.Authorization
+@implements IDisposable
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -84,8 +85,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Nav.LocationChanged += OnLocationChanged;
+
         var state = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user  = state.User;
+        var user = state.User;
 
         if (user.Identity?.IsAuthenticated == true)
         {
@@ -100,12 +103,25 @@
         }
     }
 
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private bool IsActive(string path)
+    {
+        var relativePath = "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].TrimStart('/');
+        return relativePath.Equals(path, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void ToggleMenu()     => _menuOpen     = !_menuOpen;
     private void ToggleUserMenu() => _userMenuOpen = !_userMenuOpen;
     private void CloseUserMenu()  => _userMenuOpen = false;
-
-    private bool IsActive(string path) =>
-        Nav.Uri.Contains(path, StringComparison.OrdinalIgnoreCase);
 
     private async Task HandleLogout()
     {

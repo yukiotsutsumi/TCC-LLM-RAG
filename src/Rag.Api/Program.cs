@@ -7,6 +7,11 @@ using Rag.App.Extensions;
 using Rag.Infrastructure.Data;
 using System.Text.Json.Serialization;
 
+AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+{
+    Console.Error.WriteLine($">>> CRASH: {e.ExceptionObject}");
+};
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAppCors(builder.Configuration);

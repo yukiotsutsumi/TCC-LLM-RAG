@@ -7,6 +7,11 @@ using Rag.Core.Interfaces.Services;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+{
+    Console.Error.WriteLine($">>> CRASH: {e.ExceptionObject}");
+};
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAuthentication("RagAuth")

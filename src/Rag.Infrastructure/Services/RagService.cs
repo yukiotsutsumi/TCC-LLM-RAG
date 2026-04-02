@@ -16,22 +16,22 @@ public class RagService(
 {
     private readonly OllamaOptions _opt = opt.Value;
 
-    // Distância cosine — quanto MENOR, mais similar
-    // 0.0 = idêntico, 1.0 = sem relação, 2.0 = oposto
-    // Threshold de 0.5 significa: só usa chunks com pelo menos 50% de similaridade
-    private const double SimilarityThreshold = 0.5;
+    // Distância cosine: 0 = idêntico, 2 = oposto
+    // Chunks com score acima desse valor são ignorados
+    private const double SimilarityThreshold = 0.40;
+
+    // Máximo de trocas do histórico incluídas no prompt
+    // (1 troca = 1 mensagem do usuário + 1 do assistente)
+    private const int MaxHistoryTurns = 5;
 
     public async Task<AskResponse> AskAsync(AskRequest request)
     {
         var qEmb = await ollama.EmbedAsync(_opt.EmbeddingModel, request.Question);
         var top  = (await chunks.QueryKnnAsync(qEmb, request.K))
-            .Where(t => t.Score <= SimilarityThreshold)  // filtra por relevância
+            .Where(t => t.Score <= SimilarityThreshold)
             .ToList();
 
-        var prompt = top.Count == 0
-            ? BuildFallbackPrompt(request.Question)
-            : BuildRagPrompt(top, request.Question);
-
+        var prompt  = BuildPrompt(top, request.Question, request.History);
         var answer  = await ollama.GenerateAsync(_opt.GenerationModel, prompt);
         var sources = top.Count == 0 ? [] : BuildSources(top);
 
@@ -42,14 +42,16 @@ public class RagService(
         AskRequest request,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var qEmb = await ollama.EmbedAsync(_opt.EmbeddingModel, request.Question, ct);
-        var top  = (await chunks.QueryKnnAsync(qEmb, request.K, ct: ct))
-            .Where(t => t.Score <= SimilarityThreshold)  // filtra por relevância
-            .ToList();
+        var qEmb   = await ollama.EmbedAsync(_opt.EmbeddingModel, request.Question, ct);
+        var allTop = (await chunks.QueryKnnAsync(qEmb, request.K, ct: ct)).ToList();
 
-        var prompt = top.Count == 0
-            ? BuildFallbackPrompt(request.Question)
-            : BuildRagPrompt(top, request.Question);
+        foreach (var t in allTop)
+            Console.WriteLine($">>> Score: {t.Score:F4} | {t.DocumentTitle}");
+
+        var top = allTop.Where(t => t.Score <= SimilarityThreshold).ToList();
+        Console.WriteLine($">>> Threshold: {SimilarityThreshold} | Chunks usados: {top.Count}/{allTop.Count}");
+
+        var prompt = BuildPrompt(top, request.Question, request.History);
 
         await using var enumerator = ollama
             .GenerateStreamAsync(_opt.GenerationModel, prompt, ct)
@@ -69,42 +71,66 @@ public class RagService(
                 yield return StreamPart.CreateDelta(delta);
         }
 
-        var sources = top.Count == 0 ? [] : BuildSources(top);
-        yield return StreamPart.CreateFinished(sources);
+        yield return StreamPart.CreateFinished(top.Count == 0 ? [] : BuildSources(top));
     }
 
-    // ── Prompts ────────────────────────────────────────────────
+    // ── Prompt ─────────────────────────────────────────────────
 
-    // Usado quando nenhum chunk passa no threshold — responde sem RAG
-    private static string BuildFallbackPrompt(string question) => $@"
-        Você é um assistente técnico. Responda em PT-BR de forma direta e honesta.
-        Se não souber a resposta, diga simplesmente que não tem essa informação.
-        Não invente. Não mencione documentos ou contexto.
-
-        Pergunta: {question}";
-
-    // Usado quando há chunks relevantes — RAG normal
-    private static string BuildRagPrompt(
-        IEnumerable<Rag.Core.Domain.Models.KnnResultDto> top,
-        string question)
+    private static string BuildPrompt(
+        IReadOnlyList<Rag.Core.Domain.Models.KnnResultDto> top,
+        string question,
+        List<HistoryMessage> history)
     {
-        var ctx = string.Join("\n", top.Select(t =>
-            $"- [{t.DocumentTitle ?? "Doc"}] {Trim(t.Chunk.Content, 600)}"));
+        // Sem chunks relevantes — resposta controlada, sem espaço para alucinação
+        if (top.Count == 0)
+        {
+            return $"""
+            Responda APENAS a seguinte frase, em PT-BR, sem adicionar nada:
+            "Não encontrei informações suficientes nos documentos disponíveis para responder a essa pergunta."
+            
+            Pergunta: {question}
+            """;
+        }
 
-        return $@"
-        Você é um assistente técnico em Segurança da Informação, responda em PT-BR.
-        Use apenas o contexto abaixo. Se não houver informação suficiente, diga isso e não invente.
-        Cite as fontes entre colchetes no final.
+        // Com chunks — RAG normal
+        var ctxBlock = $"""
+        Contexto dos documentos:
+        {string.Join("\n", top.Select(t =>
+                $"- [{t.DocumentTitle ?? "Doc"}] {Trim(t.Chunk.Content, 600)}"))}
+        """;
 
-        Contexto:
-        {ctx}
+        var historyBlock = "";
+        if (history.Count > 0)
+        {
+            var recent = history
+                .TakeLast(MaxHistoryTurns * 2)
+                .Select(m => m.Role == "user"
+                    ? $"Usuário: {m.Content}"
+                    : $"Assistente: {m.Content}");
 
-        Pergunta: {question}";
+            historyBlock = $"""
+
+            Histórico da conversa:
+            {string.Join("\n", recent)}
+            """;
+        }
+
+        return $"""
+        Você é um assistente técnico em Segurança da Informação, responda SEMPRE em PT-BR,
+        independente do idioma da pergunta.
+        Use apenas o contexto dos documentos abaixo. Se não houver informação suficiente,
+        diga isso e não invente.
+        Considere o histórico da conversa para entender referências como "isso", "ele", "aquilo".
+
+        {ctxBlock}
+        {historyBlock}
+
+        Pergunta atual: {question}
+        """;
     }
 
     // ── Helpers ────────────────────────────────────────────────
 
-    // Uma fonte por documento — pega o chunk mais relevante (menor Score) de cada doc
     private static List<SourceRef> BuildSources(
         IEnumerable<Rag.Core.Domain.Models.KnnResultDto> top) =>
         top
