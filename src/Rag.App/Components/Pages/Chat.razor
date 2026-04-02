@@ -1,6 +1,7 @@
 @page "/chat"
 @rendermode InteractiveServer
 @attribute [Authorize]
+@implements IDisposable
 
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
@@ -8,6 +9,9 @@
 @using Rag.Core.Domain.DTOs.Ask.Requests
 @using Rag.Core.Domain.DTOs.ResponseAI
 @using Rag.Core.Interfaces.Services
+
+@using Microsoft.Extensions.Caching.Memory
+@inject IMemoryCache _cache
 
 @inject IRagService RagService
 @inject IJSRuntime JS
@@ -42,11 +46,16 @@
         else if (_messages.Any())
         {
             <div class="ms-auto d-flex gap-2">
-                <button class="btn btn-ghost btn-sm"
-                        @onclick="ExportChat"
-                        title="Exportar conversa">
-                    <i class="bi bi-download me-1"></i>Exportar
-                </button>
+                @if (_exportToken != null)
+                {
+                    <a class="btn btn-ghost btn-sm"
+                       href="/chat/export?token=@_exportToken"
+                       target="_blank"
+                       rel="noopener"
+                       title="Exportar conversa">
+                        <i class="bi bi-download me-1"></i>Exportar
+                    </a>
+                }
                 <button class="btn btn-ghost btn-sm"
                         @onclick="NewConversation"
                         title="Nova conversa">
@@ -166,6 +175,7 @@
     private bool isLoading;
     private CancellationTokenSource? cts;
     private List<ChatMessage> _messages = new();
+    private string? _exportToken;
 
     private const int RenderIntervalMs = 50;
     private const int MaxHistoryTurns = 5;        // trocas enviadas para a IA
@@ -185,9 +195,9 @@
     {
         if (isLoading) return;
         _messages.Clear();
+        _exportToken = null;
         question = "";
         status = "";
-        _ = JS.InvokeVoidAsync("clearChatMessages");
     }
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
@@ -224,7 +234,6 @@
             IsUser    = true,
             Timestamp = DateTime.Now
         });
-        await JS.InvokeVoidAsync("pushChatMessage", "user", userQuestion);
 
         var assistantMsg = new ChatMessage
         {
@@ -265,8 +274,13 @@
                     if ((now - _lastRender).TotalMilliseconds >= RenderIntervalMs)
                     {
                         _lastRender = now;
-                        await InvokeAsync(StateHasChanged);
-                        await ScrollToBottom();
+                        try
+                        {
+                            await InvokeAsync(StateHasChanged);
+                            await ScrollToBottom();
+                        }
+                        catch (ObjectDisposedException) { break; }
+                        catch (InvalidOperationException) { break; }
                     }
                 }
                 else if (part.Kind == StreamPartKind.Finished && part.Sources != null)
@@ -291,29 +305,51 @@
         {
             assistantMsg.IsStreaming = false;
             assistantMsg.Timestamp  = DateTime.Now;
-            await JS.InvokeVoidAsync("pushChatMessage", "assistant", assistantMsg.Content);
             isLoading = false;
             cts?.Dispose();
             cts = null;
-            await InvokeAsync(StateHasChanged);
-            await ScrollToBottom();
+            RefreshExportLink();
+            try
+            {
+                await InvokeAsync(StateHasChanged);
+                await ScrollToBottom();
+            }
+            catch (ObjectDisposedException) { }
+            catch (InvalidOperationException) { }
         }
     }
 
-    private async Task ExportChat()
+    private void RefreshExportLink()
     {
+        var completed = _messages.Where(m => !m.IsStreaming).ToList();
+        if (!completed.Any()) return;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("RAG.chat — Conversa exportada");
+        sb.AppendLine($"Data: {DateTime.Now:dd/MM/yyyy HH:mm}");
+        sb.AppendLine();
+        foreach (var msg in completed)
+            sb.AppendLine(msg.IsUser ? $"Você: {msg.Content}" : $"Assistente: {msg.Content}");
+
+        _exportToken = Guid.NewGuid().ToString("N")[..16];
         var filename = $"ragchat_{DateTime.Now:yyyyMMdd_HHmm}.txt";
-        await JS.InvokeVoidAsync("exportChat", filename);
+        _cache.Set($"chatexport:{_exportToken}", (sb.ToString(), filename), TimeSpan.FromMinutes(30));
     }
 
     private void Cancel() => cts?.Cancel();
+
+    public void Dispose()
+    {
+        cts?.Cancel();
+        cts?.Dispose();
+        cts = null;
+    }
 
     private async Task ScrollToBottom()
     {
         try
         {
-            await JS.InvokeVoidAsync("eval",
-                "var el = document.getElementById('chatWindow'); if(el) el.scrollTop = el.scrollHeight;");
+            await JS.InvokeVoidAsync("scrollChatToBottom", "chatWindow");
         }
         catch { }
     }

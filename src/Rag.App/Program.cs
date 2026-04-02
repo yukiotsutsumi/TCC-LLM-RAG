@@ -1,15 +1,25 @@
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.Caching.Memory;
 using Rag.App.Auth;
 using Rag.App.Components;
 using Rag.App.Endpoints;
 using Rag.App.Services;
 using Rag.Core.Interfaces.Services;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
 {
     Console.Error.WriteLine($">>> CRASH: {e.ExceptionObject}");
+    try { File.AppendAllText("crash.log", $"[{DateTime.Now}] {e.ExceptionObject}\n\n"); } catch { }
+};
+
+TaskScheduler.UnobservedTaskException += (sender, e) =>
+{
+    Console.Error.WriteLine($">>> UNOBSERVED TASK EXCEPTION: {e.Exception}");
+    try { File.AppendAllText("crash.log", $"[{DateTime.Now}] UnobservedTask: {e.Exception}\n\n"); } catch { }
+    e.SetObserved();
 };
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,8 +51,9 @@ builder.Services.AddAuthentication("RagAuth")
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddMemoryCache();
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents(options => options.DetailedErrors = builder.Environment.IsDevelopment());
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CustomAuthStateProvider>();
@@ -104,6 +115,18 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapLoginEndpoint();
+
+app.MapGet("/chat/export", (string token, IMemoryCache cache, HttpContext ctx) =>
+{
+    if (ctx.User.Identity?.IsAuthenticated != true)
+        return Results.Unauthorized();
+
+    if (!cache.TryGetValue<(string Content, string Filename)>($"chatexport:{token}", out var entry))
+        return Results.NotFound();
+
+    cache.Remove($"chatexport:{token}");
+    return Results.File(Encoding.UTF8.GetBytes(entry.Content), "text/plain; charset=utf-8", entry.Filename);
+});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

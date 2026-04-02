@@ -133,6 +133,14 @@
         {
             await JS.InvokeVoidAsync("logoutUser");
         }
+        catch (JSDisconnectedException)
+        {
+            // Navegação bem-sucedida — circuit desconectou porque a página navegou
+        }
+        catch (TaskCanceledException)
+        {
+            // Idem
+        }
         catch
         {
             Nav.NavigateTo("/login", forceLoad: true);

@@ -107,6 +107,14 @@
             if (!success)
                 _errorMessage = "Usuário ou senha inválidos.";
         }
+        catch (JSDisconnectedException)
+        {
+            // Navegação bem-sucedida — o circuit desconectou porque a página navegou
+        }
+        catch (TaskCanceledException)
+        {
+            // Idem — navegação causou cancelamento do interop
+        }
         catch (Exception ex)
         {
             _errorMessage = "Erro ao realizar login. Tente novamente.";
