@@ -1,0 +1,181 @@
+@page "/ingest/{Id:guid}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Rag.Core.Domain.DTOs.Documents
+@using Rag.Core.Domain.DTOs.Documents.Response
+@using Rag.App.Services
+@inject IngestionServiceClient IngestionService
+@inject NavigationManager Nav
+
+<div class="ingest-page">
+
+    @if (_isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border" role="status"></div>
+        </div>
+    }
+    else if (_doc == null)
+    {
+        <div class="ingest-empty">
+            <i class="bi bi-file-earmark-x"></i>
+            <h5>Documento não encontrado</h5>
+            <button class="btn btn-ghost mt-2" @onclick="GoBack">
+                <i class="bi bi-arrow-left me-1"></i>Voltar
+            </button>
+        </div>
+    }
+    else
+    {
+        @* Header *@
+        <div class="ingest-header">
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-ghost btn-sm" @onclick="GoBack">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+                <div>
+                    <h1 class="ingest-title mb-0">@_doc.Title</h1>
+                    @if (!string.IsNullOrEmpty(_doc.Source))
+                    {
+                        <a href="@_doc.Source" target="_blank" class="ingest-subtitle"
+                           style="font-size:0.8rem;">
+                            @_doc.Source <i class="bi bi-box-arrow-up-right ms-1"></i>
+                        </a>
+                    }
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <a class="btn btn-primary btn-sm" href="/chat">
+                    <i class="bi bi-chat-dots me-1"></i>Usar no chat
+                </a>
+                <button class="btn btn-danger btn-sm @(_isDeleting ? "is-loading" : "")"
+                        @onclick="ConfirmDelete"
+                        disabled="@_isDeleting">
+                    @(_isDeleting ? "" : "Excluir")
+                </button>
+            </div>
+        </div>
+
+        @* Info cards *@
+        <div class="stats-row">
+            <div class="stat-card slide-up stagger-1">
+                <div class="stat-label">Status</div>
+                <div class="stat-value" style="font-size:1.1rem;">
+                    <span class="badge @(_doc.Status == "ready" ? "badge-ready" : "badge-processing")">
+                        @(_doc.Status == "ready" ? "Pronto" : "Processando")
+                    </span>
+                </div>
+            </div>
+            <div class="stat-card slide-up stagger-2">
+                <div class="stat-label">Chunks</div>
+                <div class="stat-value">@_doc.ChunkCount</div>
+                <div class="stat-sub">fragmentos indexados</div>
+            </div>
+            <div class="stat-card slide-up stagger-3">
+                <div class="stat-label">Indexado em</div>
+                <div class="stat-value" style="font-size:1rem;">
+                    @_doc.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")
+                </div>
+                <div class="stat-sub">@_doc.CreatedAt.ToLocalTime().ToString("HH:mm")</div>
+            </div>
+        </div>
+
+        @* Mensagem de sucesso/erro *@
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <div class="alert @(_isError ? "alert-danger" : "alert-success") mt-3 fade-in">
+                @_message
+            </div>
+        }
+    }
+</div>
+
+@* Modal de confirmação de delete *@
+@if (_showDeleteModal && _doc != null)
+{
+    <div class="modal-backdrop-custom" @onclick="CancelDelete"></div>
+    <div class="modal-custom modal-sm">
+        <div class="modal-custom-header">
+            <span>Confirmar exclusão</span>
+            <button class="btn-icon" @onclick="CancelDelete">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-custom-body">
+            <p style="color:var(--rag-text-muted); font-size:0.875rem;">
+                Tem certeza que deseja excluir
+                <strong style="color:var(--rag-text);">@_doc.Title</strong>?
+                Esta ação não pode ser desfeita.
+            </p>
+        </div>
+        <div class="modal-custom-footer">
+            <button class="btn btn-ghost" @onclick="CancelDelete">Cancelar</button>
+            <button class="btn btn-danger @(_isDeleting ? "is-loading" : "")"
+                    @onclick="DoDelete"
+                    disabled="@_isDeleting">
+                @(_isDeleting ? "" : "Excluir")
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private DocumentDto? _doc;
+    private bool _isLoading   = true;
+    private bool _isDeleting  = false;
+    private bool _showDeleteModal = false;
+    private string? _message;
+    private bool _isError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _doc = await IngestionService.GetDocumentAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            _message = $"Erro: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void GoBack() => Nav.NavigateTo("/ingest");
+
+    private void ConfirmDelete() => _showDeleteModal = true;
+    private void CancelDelete()  => _showDeleteModal = false;
+
+    private async Task DoDelete()
+    {
+        if (_doc == null) return;
+        _isDeleting = true;
+        try
+        {
+            var ok = await IngestionService.DeleteDocumentAsync(_doc.Id);
+            if (ok)
+                Nav.NavigateTo("/ingest");
+            else
+            {
+                _message = "Erro ao excluir documento.";
+                _isError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"Erro: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _isDeleting      = false;
+            _showDeleteModal = false;
+        }
+    }
+}

@@ -50,6 +50,7 @@ app.MapHealthEndpoints();
 app.MapAskEndpoints();
 app.MapAuthEndpoints();
 app.MapIngestEndpoints();
+app.MapDocumentEndpoints(); 
 app.UseRequestTimeouts();
 
 app.Run();

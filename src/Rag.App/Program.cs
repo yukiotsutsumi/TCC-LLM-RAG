@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Rag.App.Auth;
 using Rag.App.Components;
 using Rag.App.Endpoints;
+using Rag.App.Models;
 using Rag.App.Services;
 using Rag.Core.Interfaces.Services;
 using System.Text;
@@ -107,6 +108,13 @@ builder.Services.AddScoped<IIngestionService>(sp =>
         sp.GetRequiredService<IHttpContextAccessor>()
     ));
 
+builder.Services.AddScoped<IngestionServiceClient>(sp =>
+    new IngestionServiceClient(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("RagApi"),
+        sp.GetRequiredService<JsonSerializerOptions>(),
+        sp.GetRequiredService<IHttpContextAccessor>()
+    ));
+
 var app = builder.Build();
 
 app.UseStaticFiles();
@@ -118,15 +126,29 @@ app.MapLoginEndpoint();
 
 app.MapGet("/chat/export", (string token, IMemoryCache cache, HttpContext ctx) =>
 {
+    Console.WriteLine($">>> Export request: token={token}");
+    
     if (ctx.User.Identity?.IsAuthenticated != true)
+    {
+        Console.WriteLine(">>> Export: não autenticado");
         return Results.Unauthorized();
+    }
 
-    if (!cache.TryGetValue<(string Content, string Filename)>($"chatexport:{token}", out var entry))
+    if (!cache.TryGetValue<ChatExportEntry>($"chatexport:{token}", out var entry) || entry is null)
+    {
+        Console.WriteLine($">>> Export: token não encontrado no cache");
         return Results.NotFound();
+    }
 
     cache.Remove($"chatexport:{token}");
-    return Results.File(Encoding.UTF8.GetBytes(entry.Content), "text/plain; charset=utf-8", entry.Filename);
-});
+    Console.WriteLine($">>> Export: sucesso, arquivo={entry.Filename}");
+    
+    return Results.File(
+        Encoding.UTF8.GetBytes(entry.Content),
+        "application/octet-stream",
+        entry.Filename);
+})
+.DisableAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

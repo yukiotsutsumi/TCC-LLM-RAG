@@ -12,6 +12,9 @@ public static class ObservabilityExtensions
 {
     public static IServiceCollection AddObservability(this IServiceCollection services, IConfiguration configuration)
     {
+        var tempoEndpoint = configuration["Observability:TempoEndpoint"];
+        var tempoEnabled = !string.IsNullOrWhiteSpace(tempoEndpoint);
+
         services.AddOpenTelemetry()
             .ConfigureResource(r => r.AddService("rag-app", serviceVersion: "1.0.0"))
             .WithMetrics(m => m
@@ -19,14 +22,20 @@ public static class ObservabilityExtensions
                 .AddHttpClientInstrumentation()
                 .AddRuntimeInstrumentation()
                 .AddPrometheusExporter())
-            .WithTracing(t => t
-                .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation()
-                .AddOtlpExporter(o =>
+            .WithTracing(t =>
+            {
+                t.AddAspNetCoreInstrumentation()
+                 .AddHttpClientInstrumentation();
+
+                if (tempoEnabled)
                 {
-                    o.Endpoint = new Uri("http://tempo:4317");
-                    o.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.Grpc;
-                }));
+                    t.AddOtlpExporter(o =>
+                    {
+                        o.Endpoint = new Uri(tempoEndpoint!);
+                        o.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.Grpc;
+                    });
+                }
+            });
 
         return services;
     }

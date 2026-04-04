@@ -1,6 +1,3 @@
-﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Rag.Core.Domain.DTOs.Ingest.Requests;
 using Rag.Core.Interfaces.Services;
 using System.ComponentModel.DataAnnotations;
@@ -13,7 +10,10 @@ public static class IngestEndpoints
     {
         var group = routes.MapGroup("/api").WithTags("Ingest");
 
-        group.MapPost("/ingest-text", async (IngestTextBody body, IIngestionService ingestion, CancellationToken ct) =>
+        group.MapPost("/ingest-text", async (
+            IngestTextBody body,
+            IIngestionService ingestion,
+            CancellationToken ct) =>
         {
             var dto = new IngestTextRequest(body.Title, body.Source, body.Text, body.Model);
             var result = await ingestion.IngestTextAsync(dto, ct);
@@ -22,26 +22,51 @@ public static class IngestEndpoints
             return Results.Ok(result);
         }).RequireAuthorization();
 
-        group.MapPost("/upload", async (HttpRequest req, IIngestionService ingestion, CancellationToken ct) =>
+        // Upload de arquivo — aceita PDF e TXT
+        group.MapPost("/upload", async (
+            HttpRequest req,
+            IIngestionService ingestion,
+            CancellationToken ct) =>
         {
             if (!req.HasFormContentType || req.Form.Files.Count == 0)
-                return Results.BadRequest("Envie um arquivo .txt em multipart/form-data");
+                return Results.BadRequest("Envie um arquivo em multipart/form-data.");
 
             var file = req.Form.Files[0];
-            if (!file.FileName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
-                return Results.BadRequest("Apenas .txt por enquanto.");
+            var ext  = Path.GetExtension(file.FileName).ToLowerInvariant();
 
-            using var reader = new StreamReader(file.OpenReadStream());
-            var text = await reader.ReadToEndAsync(ct);
+            if (ext != ".txt" && ext != ".pdf")
+                return Results.BadRequest("Apenas arquivos .txt e .pdf são aceitos.");
 
-            var title = req.Form.TryGetValue("title", out var t) ? t.ToString() : file.FileName;
+            var title  = req.Form.TryGetValue("title",  out var t) ? t.ToString() : Path.GetFileNameWithoutExtension(file.FileName);
             var source = req.Form.TryGetValue("source", out var s) ? s.ToString() : "upload";
-            var model = req.Form.TryGetValue("model", out var m) ? m.ToString() : null;
+            var model  = req.Form.TryGetValue("model",  out var m) ? m.ToString() : null;
 
-            var dto = new IngestTextRequest(title, source, text, model);
+            string text;
+
+            if (ext == ".pdf")
+            {
+                // Extrai texto do PDF usando PdfPig
+                using var pdfStream = file.OpenReadStream();
+                using var pdf = UglyToad.PdfPig.PdfDocument.Open(pdfStream);
+                var pages = pdf.GetPages()
+                    .Select(p => string.Join(" ", p.GetWords().Select(w => w.Text)));
+                text = string.Join("\n", pages);
+
+                if (string.IsNullOrWhiteSpace(text))
+                    return Results.BadRequest("Não foi possível extrair texto do PDF.");
+            }
+            else
+            {
+                using var reader = new StreamReader(file.OpenReadStream());
+                text = await reader.ReadToEndAsync(ct);
+            }
+
+            var dto    = new IngestTextRequest(title, source, text, model);
             var result = await ingestion.IngestTextAsync(dto, ct);
             return Results.Ok(result);
-        }).RequireAuthorization();
+        })
+        .RequireAuthorization()
+        .DisableAntiforgery();
 
         return routes;
     }

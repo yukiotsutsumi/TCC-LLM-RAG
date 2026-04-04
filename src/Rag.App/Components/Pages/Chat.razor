@@ -5,6 +5,7 @@
 
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
+@using Rag.App.Models
 @using Rag.Core.Domain.DTOs
 @using Rag.Core.Domain.DTOs.Ask.Requests
 @using Rag.Core.Domain.DTOs.ResponseAI
@@ -48,13 +49,13 @@
             <div class="ms-auto d-flex gap-2">
                 @if (_exportToken != null)
                 {
-                    <a class="btn btn-ghost btn-sm"
-                       href="/chat/export?token=@_exportToken"
-                       target="_blank"
-                       rel="noopener"
-                       title="Exportar conversa">
-                        <i class="bi bi-download me-1"></i>Exportar
-                    </a>
+               <a class="btn btn-ghost btn-sm"
+                    href="/chat/export?token=@_exportToken"
+                    target="_blank"
+                    rel="noopener"
+                    title="Exportar conversa">
+                    <i class="bi bi-download me-1"></i>Exportar
+                </a>
                 }
                 <button class="btn btn-ghost btn-sm"
                         @onclick="NewConversation"
@@ -322,18 +323,33 @@
     private void RefreshExportLink()
     {
         var completed = _messages.Where(m => !m.IsStreaming).ToList();
-        if (!completed.Any()) return;
+        if (!completed.Any())
+        {
+            Console.WriteLine(">>> RefreshExportLink: sem mensagens completas");
+            return;
+        }
 
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("RAG.chat — Conversa exportada");
         sb.AppendLine($"Data: {DateTime.Now:dd/MM/yyyy HH:mm}");
         sb.AppendLine();
+
         foreach (var msg in completed)
-            sb.AppendLine(msg.IsUser ? $"Você: {msg.Content}" : $"Assistente: {msg.Content}");
+            sb.AppendLine(msg.IsUser
+                ? $"Você: {msg.Content}"
+                : $"Assistente: {msg.Content}");
 
         _exportToken = Guid.NewGuid().ToString("N")[..16];
-        var filename = $"ragchat_{DateTime.Now:yyyyMMdd_HHmm}.txt";
-        _cache.Set($"chatexport:{_exportToken}", (sb.ToString(), filename), TimeSpan.FromMinutes(30));
+
+        _cache.Set($"chatexport:{_exportToken}",
+            new ChatExportEntry
+            {
+                Content  = sb.ToString(),
+                Filename = $"ragchat_{DateTime.Now:yyyyMMdd_HHmm}.txt"
+            },
+            TimeSpan.FromMinutes(30));
+
+        Console.WriteLine($">>> RefreshExportLink: token={_exportToken} salvo no cache");
     }
 
     private void Cancel() => cts?.Cancel();

@@ -1,82 +1,429 @@
-﻿@using Microsoft.AspNetCore.Authorization
-@using Rag.Core.Domain.DTOs.Ingest.Requests
-@using Rag.Core.Domain.DTOs.Ingest.Responses
-@using Rag.Core.Interfaces.Services
-
-@attribute [Authorize]
 @page "/ingest"
 @rendermode InteractiveServer
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Rag.Core.Domain.DTOs.Documents
+@using Rag.Core.Domain.DTOs.Documents.Response
+@using Rag.App.Services
+@inject IngestionServiceClient IngestionService
+@inject NavigationManager Nav
 
-@inject IIngestionService IngestionService
+<div class="ingest-page">
 
-<h3>Ingestão de Texto</h3>
+    @* Header da página *@
+    <div class="ingest-header">
+        <div>
+            <h1 class="ingest-title">Documentos</h1>
+            <p class="ingest-subtitle">Gerencie os documentos indexados no sistema</p>
+        </div>
+        <button class="btn btn-primary" @onclick="OpenUploadModal">
+            <i class="bi bi-plus-lg me-2"></i>Novo documento
+        </button>
+    </div>
 
-<div class="mb-3">
-    <label class="form-label">Título</label>
-    <input class="form-control" @bind="title" />
+    @* Stats *@
+    @if (_stats != null)
+    {
+        <div class="stats-row">
+            <div class="stat-card slide-up stagger-1">
+                <div class="stat-label">Documentos</div>
+                <div class="stat-value">@_stats.TotalDocuments</div>
+                <div class="stat-sub">indexados</div>
+            </div>
+            <div class="stat-card slide-up stagger-2">
+                <div class="stat-label">Chunks</div>
+                <div class="stat-value">@_stats.TotalChunks</div>
+                <div class="stat-sub">fragmentos de texto</div>
+            </div>
+            <div class="stat-card slide-up stagger-3">
+                <div class="stat-label">Média</div>
+                <div class="stat-value">
+                    @(_stats.TotalDocuments > 0
+                        ? (_stats.TotalChunks / _stats.TotalDocuments).ToString()
+                        : "0")
+                </div>
+                <div class="stat-sub">chunks por documento</div>
+            </div>
+        </div>
+    }
+
+    @* Lista de documentos *@
+    @if (_isLoading)
+    {
+        <div class="d-flex justify-content-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+        </div>
+    }
+    else if (!_documents.Any())
+    {
+        <div class="ingest-empty fade-in">
+            <i class="bi bi-file-earmark-text"></i>
+            <h5>Nenhum documento indexado</h5>
+            <p>Faça upload de um documento para começar a usar o chat</p>
+            <button class="btn btn-primary mt-2" @onclick="OpenUploadModal">
+                <i class="bi bi-upload me-2"></i>Fazer upload
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="doc-grid">
+            @foreach (var doc in _documents)
+            {
+                <div class="doc-card fade-in" @onclick="() => GoToDetails(doc.Id)">
+                    <div class="doc-card-icon">
+                        <i class="bi bi-file-earmark-pdf-fill"></i>
+                    </div>
+                    <div class="doc-card-body">
+                        <div class="doc-card-title">@doc.Title</div>
+                        @if (!string.IsNullOrEmpty(doc.Source))
+                        {
+                            <div class="doc-card-source">@doc.Source</div>
+                        }
+                        <div class="doc-card-meta">
+                            <span class="badge @(doc.Status == "ready" ? "badge-ready" : "badge-processing")">
+                                @(doc.Status == "ready" ? "Pronto" : "Processando")
+                            </span>
+                            <span class="doc-card-chunks">
+                                <i class="bi bi-grid-3x3-gap me-1"></i>@doc.ChunkCount chunks
+                            </span>
+                            <span class="doc-card-date">
+                                @doc.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")
+                            </span>
+                        </div>
+                    </div>
+                    <button class="doc-card-delete"
+                            @onclick:stopPropagation="true"
+                            @onclick="() => ConfirmDelete(doc)"
+                            title="Excluir documento">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                </div>
+            }
+        </div>
+    }
+
+    @* Mensagem de erro *@
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger mt-3 fade-in">
+            <i class="bi bi-exclamation-triangle me-2"></i>@_errorMessage
+        </div>
+    }
 </div>
 
-<div class="mb-3">
-    <label class="form-label">Fonte (URL, arquivo, etc)</label>
-    <input class="form-control" @bind="source" />
-</div>
-
-<div class="mb-3">
-    <label class="form-label">Texto</label>
-    <textarea class="form-control" rows="10" @bind="text"></textarea>
-</div>
-
-<button type="button" class="btn btn-primary" @onclick="IngestAsync" disabled="@isLoading">
-    Ingerir
-</button>
-
-@if (!string.IsNullOrWhiteSpace(status))
+@* Modal de Upload *@
+@if (_showUploadModal)
 {
-    <div class="alert alert-info mt-3">@status</div>
+    <div class="modal-backdrop-custom" @onclick="CloseUploadModal"></div>
+    <div class="modal-custom">
+        <div class="modal-custom-header">
+            <span>Novo documento</span>
+            <button class="btn-icon" @onclick="CloseUploadModal">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-custom-body">
+
+            @if (_uploadSuccess)
+            {
+                <div class="alert alert-success fade-in">
+                    <i class="bi bi-check-circle me-2"></i>
+                    Documento indexado com sucesso!
+                </div>
+            }
+            else
+            {
+                <div class="mb-3">
+                    <label class="form-label">Título</label>
+                    <input class="form-control" @bind="_uploadTitle" placeholder="Nome do documento" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Fonte / URL</label>
+                    <input class="form-control" @bind="_uploadSource" placeholder="https://... ou descrição" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Arquivo</label>
+
+                    @* Drag & Drop Zone *@
+                    <div class="drop-zone @(_isDragging ? "dragging" : "") @(_selectedFile != null ? "has-file" : "")"
+                         @ondragover:preventDefault="true"
+                         @ondragover="() => _isDragging = true"
+                         @ondragleave="() => _isDragging = false"
+                         @ondrop:preventDefault="true"
+                         @ondrop="HandleDrop">
+                        @if (_selectedFile != null)
+                        {
+                            <i class="bi bi-file-earmark-check-fill drop-zone-icon text-success"></i>
+                            <div class="drop-zone-text">@_selectedFile.Name</div>
+                            <div class="drop-zone-hint">
+                                @((_selectedFile.Size / 1024.0).ToString("F1")) KB
+                            </div>
+                        }
+                        else
+                        {
+                            <i class="bi bi-cloud-upload drop-zone-icon"></i>
+                            <div class="drop-zone-text">Arraste um arquivo aqui</div>
+                            <div class="drop-zone-hint">ou clique para selecionar</div>
+                        }
+                        <InputFile OnChange="HandleFileSelected"
+                                   accept=".pdf,.txt"
+                                   style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_fileError))
+                    {
+                        <div class="text-danger small mt-1">
+                            <i class="bi bi-exclamation-triangle me-1"></i>@_fileError
+                        </div>
+                    }
+                </div>
+
+                @* Progresso *@
+                @if (_isUploading)
+                {
+                    <div class="upload-progress">
+                        <div class="upload-progress-label">
+                            <span>Indexando documento...</span>
+                            <span>@_uploadProgress%</span>
+                        </div>
+                        <div class="progress" style="height:6px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                 style="width:@(_uploadProgress)%; background:var(--rag-primary);">
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_uploadError))
+                {
+                    <div class="alert alert-danger py-2 small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>@_uploadError
+                    </div>
+                }
+            }
+        </div>
+        <div class="modal-custom-footer">
+            @if (_uploadSuccess)
+            {
+                <button class="btn btn-primary w-100" @onclick="CloseUploadModal">
+                    Fechar
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-ghost" @onclick="CloseUploadModal" disabled="@_isUploading">
+                    Cancelar
+                </button>
+                <button class="btn btn-primary @(_isUploading ? "is-loading" : "")"
+                        @onclick="DoUpload"
+                        disabled="@(_isUploading || _selectedFile == null)">
+                    @(_isUploading ? "" : "Indexar documento")
+                </button>
+            }
+        </div>
+    </div>
 }
 
-@if (result is not null)
+@* Modal de confirmação de delete *@
+@if (_docToDelete != null)
 {
-    <div class="alert alert-success mt-3">
-        DocumentId: @result.DocumentId — Chunks: @result.ChunksSaved
+    <div class="modal-backdrop-custom" @onclick="CancelDelete"></div>
+    <div class="modal-custom modal-sm">
+        <div class="modal-custom-header">
+            <span>Confirmar exclusão</span>
+            <button class="btn-icon" @onclick="CancelDelete">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="modal-custom-body">
+            <p style="color:var(--rag-text-muted); font-size:0.875rem;">
+                Tem certeza que deseja excluir
+                <strong style="color:var(--rag-text);">@_docToDelete.Title</strong>?
+                Todos os chunks serão removidos e o documento não estará mais disponível no chat.
+            </p>
+        </div>
+        <div class="modal-custom-footer">
+            <button class="btn btn-ghost" @onclick="CancelDelete">Cancelar</button>
+            <button class="btn btn-danger @(_isDeleting ? "is-loading" : "")"
+                    @onclick="DoDelete"
+                    disabled="@_isDeleting">
+                @(_isDeleting ? "" : "Excluir")
+            </button>
+        </div>
     </div>
 }
 
 @code {
-    private string title = "";
-    private string source = "";
-    private string text = "";
-    private bool isLoading;
-    private string? status;
-    private IngestTextResponse? result;
+    private List<DocumentDto> _documents = [];
+    private DocumentStatsDto? _stats;
+    private bool _isLoading = true;
+    private string? _errorMessage;
 
-    private async Task IngestAsync()
+    // Upload modal
+    private bool   _showUploadModal = false;
+    private string _uploadTitle     = "";
+    private string _uploadSource    = "";
+    private bool   _isDragging      = false;
+    private bool   _isUploading     = false;
+    private bool   _uploadSuccess   = false;
+    private int    _uploadProgress  = 0;
+    private string? _uploadError;
+    private string? _fileError;
+    private IBrowserFile? _selectedFile;
+
+    // Delete modal
+    private DocumentDto? _docToDelete;
+    private bool _isDeleting = false;
+
+    private const long MaxFileSizeBytes = 20 * 1024 * 1024; // 20MB
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
     {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            status = "Texto não pode ser vazio.";
-            return;
-        }
-
+        _isLoading = true;
+        _errorMessage = null;
         try
         {
-            isLoading = true;
-            status = "Enviando para ingestão...";
-
-            var req = new IngestTextRequest(title, source, text);
-            result = await IngestionService.IngestTextAsync(req);
-
-            status = result.ChunksSaved > 0
-                ? $"Concluído! {result.ChunksSaved} chunks salvos."
-                : "Aviso: nenhum chunk foi salvo.";
+            var docsTask  = IngestionService.GetDocumentsAsync();
+            var statsTask = IngestionService.GetStatsAsync();
+            await Task.WhenAll(docsTask, statsTask);
+            _documents = (await docsTask).ToList();
+            _stats     = await statsTask;
         }
         catch (Exception ex)
         {
-            status = $"Erro: {ex.Message}";
+            _errorMessage = $"Erro ao carregar documentos: {ex.Message}";
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
+
+    private void OpenUploadModal()
+    {
+        _uploadTitle   = "";
+        _uploadSource  = "";
+        _selectedFile  = null;
+        _uploadError   = null;
+        _fileError     = null;
+        _uploadSuccess = false;
+        _isUploading   = false;
+        _uploadProgress = 0;
+        _showUploadModal = true;
+    }
+
+    private void CloseUploadModal()
+    {
+        if (_isUploading) return;
+        _showUploadModal = false;
+        if (_uploadSuccess)
+            _ = LoadData(); // recarrega lista após upload bem-sucedido
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        _fileError    = null;
+        _selectedFile = null;
+        var file = e.File;
+
+        var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+        if (ext != ".pdf" && ext != ".txt")
+        {
+            _fileError = "Apenas arquivos .pdf e .txt são aceitos.";
+            return;
+        }
+        if (file.Size > MaxFileSizeBytes)
+        {
+            _fileError = $"Arquivo muito grande. Máximo: 20MB.";
+            return;
+        }
+
+        _selectedFile = file;
+        if (string.IsNullOrEmpty(_uploadTitle))
+            _uploadTitle = Path.GetFileNameWithoutExtension(file.Name);
+    }
+
+    private void HandleDrop(DragEventArgs e)
+    {
+        _isDragging = false;
+        // O InputFile trata o drop automaticamente via OnChange
+    }
+
+    private async Task DoUpload()
+    {
+        if (_selectedFile == null) return;
+
+        _isUploading   = true;
+        _uploadError   = null;
+        _uploadProgress = 10;
+        StateHasChanged();
+
+        try
+        {
+            _uploadProgress = 30;
+            StateHasChanged();
+
+            await using var stream = _selectedFile.OpenReadStream(MaxFileSizeBytes);
+            _uploadProgress = 60;
+            StateHasChanged();
+
+            await IngestionService.UploadFileAsync(
+                stream,
+                _selectedFile.Name,
+                _uploadTitle,
+                _uploadSource);
+
+            _uploadProgress = 100;
+            _uploadSuccess  = true;
+        }
+        catch (Exception ex)
+        {
+            _uploadError = $"Erro ao indexar: {ex.Message}";
+        }
+        finally
+        {
+            _isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ConfirmDelete(DocumentDto doc) => _docToDelete = doc;
+    private void CancelDelete() => _docToDelete = null;
+
+    private async Task DoDelete()
+    {
+        if (_docToDelete == null) return;
+        _isDeleting = true;
+        try
+        {
+            var ok = await IngestionService.DeleteDocumentAsync(_docToDelete.Id);
+            if (ok)
+            {
+                _documents.Remove(_docToDelete);
+                _docToDelete = null;
+                await LoadData(); // atualiza stats
+            }
+            else
+            {
+                _errorMessage = "Erro ao excluir documento.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Erro: {ex.Message}";
+        }
+        finally
+        {
+            _isDeleting  = false;
+            _docToDelete = null;
+        }
+    }
+
+    private void GoToDetails(Guid id) =>
+        Nav.NavigateTo($"/ingest/{id}");
 }
