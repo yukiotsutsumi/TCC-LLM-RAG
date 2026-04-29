@@ -36,12 +36,32 @@
                 </button>
                 <div>
                     <h1 class="ingest-title mb-0">@_doc.Title</h1>
-                    @if (!string.IsNullOrEmpty(_doc.Source))
+
+                    @* Origem do documento *@
+                    @if (!string.IsNullOrEmpty(_doc.Source)
+                         && _doc.Source != "upload"
+                         && _doc.Source != "local")
                     {
-                        <a href="@_doc.Source" target="_blank" class="ingest-subtitle"
-                           style="font-size:0.8rem;">
-                            @_doc.Source <i class="bi bi-box-arrow-up-right ms-1"></i>
-                        </a>
+                        @if (_doc.Source.StartsWith("http"))
+                        {
+                            <a href="@_doc.Source" target="_blank" class="ingest-subtitle"
+                               style="font-size:0.8rem;">
+                                @_doc.Source
+                                <i class="bi bi-box-arrow-up-right ms-1"></i>
+                            </a>
+                        }
+                        else
+                        {
+                            <p class="ingest-subtitle mb-0" style="font-size:0.8rem;">
+                                @_doc.Source
+                            </p>
+                        }
+                    }
+                    else
+                    {
+                        <p class="ingest-subtitle mb-0" style="font-size:0.8rem;">
+                            <i class="bi bi-hdd me-1"></i>Arquivo local
+                        </p>
                     }
                 </div>
             </div>
@@ -81,7 +101,6 @@
             </div>
         </div>
 
-        @* Mensagem de sucesso/erro *@
         @if (!string.IsNullOrEmpty(_message))
         {
             <div class="alert @(_isError ? "alert-danger" : "alert-success") mt-3 fade-in">
@@ -124,8 +143,8 @@
     [Parameter] public Guid Id { get; set; }
 
     private DocumentDto? _doc;
-    private bool _isLoading   = true;
-    private bool _isDeleting  = false;
+    private bool _isLoading       = true;
+    private bool _isDeleting      = false;
     private bool _showDeleteModal = false;
     private string? _message;
     private bool _isError;

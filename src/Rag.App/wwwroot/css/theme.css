@@ -50,7 +50,7 @@
 /* ── Override Bootstrap 5 ──────────────────────────────────── */
 body {
     font-family: var(--rag-font);
-    background-color: var(--rag-bg);
+    background-color: var(--rag-bg) !important;
     color: var(--rag-text);
     font-size: 0.925rem;
     -webkit-font-smoothing: antialiased;

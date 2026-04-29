@@ -78,10 +78,34 @@
                     </div>
                     <div class="doc-card-body">
                         <div class="doc-card-title">@doc.Title</div>
-                        @if (!string.IsNullOrEmpty(doc.Source))
+
+                        @* Origem do documento *@
+                        @if (!string.IsNullOrEmpty(doc.Source)
+                             && doc.Source != "upload"
+                             && doc.Source != "local")
                         {
-                            <div class="doc-card-source">@doc.Source</div>
+                            @if (doc.Source.StartsWith("http"))
+                            {
+                                <a href="@doc.Source" target="_blank"
+                                   class="doc-card-source"
+                                   @onclick:stopPropagation="true">
+                                    @doc.Source
+                                    <i class="bi bi-box-arrow-up-right ms-1"
+                                       style="font-size:0.65rem;"></i>
+                                </a>
+                            }
+                            else
+                            {
+                                <div class="doc-card-source">@doc.Source</div>
+                            }
                         }
+                        else
+                        {
+                            <div class="doc-card-source doc-card-local">
+                                <i class="bi bi-hdd me-1"></i>Arquivo local
+                            </div>
+                        }
+
                         <div class="doc-card-meta">
                             <span class="badge @(doc.Status == "ready" ? "badge-ready" : "badge-processing")">
                                 @(doc.Status == "ready" ? "Pronto" : "Processando")
@@ -136,18 +160,43 @@
             }
             else
             {
+                @* Toggle de origem *@
+                <div class="mb-3">
+                    <label class="form-label">Origem</label>
+                    <div class="origin-toggle">
+                        <button type="button"
+                                class="origin-btn @(_isLocalFile ? "active" : "")"
+                                @onclick="() => _isLocalFile = true">
+                            <i class="bi bi-hdd me-2"></i>Arquivo local
+                        </button>
+                        <button type="button"
+                                class="origin-btn @(!_isLocalFile ? "active" : "")"
+                                @onclick="() => _isLocalFile = false">
+                            <i class="bi bi-globe me-2"></i>Site da internet
+                        </button>
+                    </div>
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label">Título</label>
-                    <input class="form-control" @bind="_uploadTitle" placeholder="Nome do documento" />
+                    <input class="form-control"
+                           @bind="_uploadTitle"
+                           placeholder="Nome do documento" />
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Fonte / URL</label>
-                    <input class="form-control" @bind="_uploadSource" placeholder="https://... ou descrição" />
-                </div>
+
+                @* URL só aparece se for site *@
+                @if (!_isLocalFile)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">URL da fonte</label>
+                        <input class="form-control"
+                               @bind="_uploadSource"
+                               placeholder="https://..." />
+                    </div>
+                }
+
                 <div class="mb-3">
                     <label class="form-label">Arquivo</label>
-
-                    @* Drag & Drop Zone *@
                     <div class="drop-zone @(_isDragging ? "dragging" : "") @(_selectedFile != null ? "has-file" : "")"
                          @ondragover:preventDefault="true"
                          @ondragover="() => _isDragging = true"
@@ -166,13 +215,12 @@
                         {
                             <i class="bi bi-cloud-upload drop-zone-icon"></i>
                             <div class="drop-zone-text">Arraste um arquivo aqui</div>
-                            <div class="drop-zone-hint">ou clique para selecionar</div>
+                            <div class="drop-zone-hint">PDF ou TXT • máx. 20MB</div>
                         }
                         <InputFile OnChange="HandleFileSelected"
                                    accept=".pdf,.txt"
                                    style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
                     </div>
-
                     @if (!string.IsNullOrEmpty(_fileError))
                     {
                         <div class="text-danger small mt-1">
@@ -181,7 +229,6 @@
                     }
                 </div>
 
-                @* Progresso *@
                 @if (_isUploading)
                 {
                     <div class="upload-progress">
@@ -264,6 +311,7 @@
 
     // Upload modal
     private bool   _showUploadModal = false;
+    private bool   _isLocalFile     = true; // padrão: arquivo local
     private string _uploadTitle     = "";
     private string _uploadSource    = "";
     private bool   _isDragging      = false;
@@ -284,7 +332,7 @@
 
     private async Task LoadData()
     {
-        _isLoading = true;
+        _isLoading    = true;
         _errorMessage = null;
         try
         {
@@ -306,13 +354,14 @@
 
     private void OpenUploadModal()
     {
-        _uploadTitle   = "";
-        _uploadSource  = "";
-        _selectedFile  = null;
-        _uploadError   = null;
-        _fileError     = null;
-        _uploadSuccess = false;
-        _isUploading   = false;
+        _isLocalFile    = true;
+        _uploadTitle    = "";
+        _uploadSource   = "";
+        _selectedFile   = null;
+        _uploadError    = null;
+        _fileError      = null;
+        _uploadSuccess  = false;
+        _isUploading    = false;
         _uploadProgress = 0;
         _showUploadModal = true;
     }
@@ -322,7 +371,7 @@
         if (_isUploading) return;
         _showUploadModal = false;
         if (_uploadSuccess)
-            _ = LoadData(); // recarrega lista após upload bem-sucedido
+            _ = LoadData();
     }
 
     private void HandleFileSelected(InputFileChangeEventArgs e)
@@ -339,7 +388,7 @@
         }
         if (file.Size > MaxFileSizeBytes)
         {
-            _fileError = $"Arquivo muito grande. Máximo: 20MB.";
+            _fileError = "Arquivo muito grande. Máximo: 20MB.";
             return;
         }
 
@@ -348,18 +397,17 @@
             _uploadTitle = Path.GetFileNameWithoutExtension(file.Name);
     }
 
-    private void HandleDrop(DragEventArgs e)
-    {
-        _isDragging = false;
-        // O InputFile trata o drop automaticamente via OnChange
-    }
+    private void HandleDrop(DragEventArgs e) => _isDragging = false;
 
     private async Task DoUpload()
     {
         if (_selectedFile == null) return;
 
-        _isUploading   = true;
-        _uploadError   = null;
+        // Fonte determinada pela flag — "local" para arquivos do PC
+        var source = _isLocalFile ? "local" : _uploadSource;
+
+        _isUploading    = true;
+        _uploadError    = null;
         _uploadProgress = 10;
         StateHasChanged();
 
@@ -369,6 +417,7 @@
             StateHasChanged();
 
             await using var stream = _selectedFile.OpenReadStream(MaxFileSizeBytes);
+
             _uploadProgress = 60;
             StateHasChanged();
 
@@ -376,7 +425,7 @@
                 stream,
                 _selectedFile.Name,
                 _uploadTitle,
-                _uploadSource);
+                source);
 
             _uploadProgress = 100;
             _uploadSuccess  = true;
@@ -393,7 +442,7 @@
     }
 
     private void ConfirmDelete(DocumentDto doc) => _docToDelete = doc;
-    private void CancelDelete() => _docToDelete = null;
+    private void CancelDelete()                 => _docToDelete = null;
 
     private async Task DoDelete()
     {
@@ -406,7 +455,7 @@
             {
                 _documents.Remove(_docToDelete);
                 _docToDelete = null;
-                await LoadData(); // atualiza stats
+                await LoadData();
             }
             else
             {

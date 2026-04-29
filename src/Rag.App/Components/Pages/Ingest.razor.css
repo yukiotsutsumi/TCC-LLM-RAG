@@ -118,14 +118,21 @@
     margin-bottom: 0.25rem;
 }
 
-.doc-card-source {
-    font-size: 0.72rem;
-    color: var(--rag-text-muted);
+.doc-card-source a,
+a.doc-card-source {
+    display: block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 0.5rem;
+    max-width: 100%;
+    color: var(--rag-text-muted);
+    text-decoration: none;
 }
+
+    a.doc-card-source:hover {
+        color: var(--rag-accent);
+        text-decoration: underline;
+    }
 
 .doc-card-meta {
     display: flex;
@@ -184,6 +191,26 @@
 }
 
 /* ── Modals ─────────────────────────────────────────────────── */
+.modal-custom {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(90vw, 520px);
+    height: fit-content;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--rag-surface);
+    border: 1px solid var(--rag-border);
+    border-radius: var(--rag-radius-xl);
+    box-shadow: var(--rag-shadow-lg);
+    z-index: 1055;
+    /* SEM animation aqui — conflita com transform do posicionamento */
+}
+
+.modal-custom.modal-sm {
+    width: min(90vw, 380px);
+}
+
 .modal-backdrop-custom {
     position: fixed;
     inset: 0;
@@ -192,23 +219,6 @@
     z-index: 200;
     animation: fadeIn 0.15s ease both;
 }
-
-.modal-custom {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 90%;
-    max-width: 520px;
-    background: var(--rag-surface);
-    border: 1px solid var(--rag-border);
-    border-radius: var(--rag-radius-xl);
-    box-shadow: var(--rag-shadow-lg);
-    z-index: 201;
-    animation: slideUp 0.2s cubic-bezier(0.16,1,0.3,1) both;
-}
-
-.modal-custom.modal-sm { max-width: 380px; }
 
 .modal-custom-header {
     display: flex;
@@ -326,3 +336,35 @@
         flex-direction: column;
     }
 }
+
+/* ── Origin toggle ──────────────────────────────────────────── */
+.origin-toggle {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.origin-btn {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    background: var(--rag-surface-2);
+    border: 1px solid var(--rag-border);
+    border-radius: var(--rag-radius);
+    color: var(--rag-text-muted);
+    font-family: var(--rag-font);
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all var(--rag-transition);
+    text-align: center;
+}
+
+    .origin-btn:hover {
+        border-color: var(--rag-border-light);
+        color: var(--rag-text);
+    }
+
+    .origin-btn.active {
+        background: var(--rag-primary-dim);
+        border-color: var(--rag-primary);
+        color: var(--rag-accent);
+        font-weight: 600;
+    }
