@@ -94,7 +94,7 @@ services:
     volumes:
       - aspnet_keys:/root/.aspnet/DataProtection-Keys
     environment:  
-      - ConnectionStrings__Postgres=Host=rag-db;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=ragdb  
+      - ConnectionStrings__Postgres=Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=ragdb  
       - Jwt__SecretKey=${JWT_SECRET}
     
   prometheus:
