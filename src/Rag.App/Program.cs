@@ -70,8 +70,10 @@ builder.Services.AddSingleton(jsonOptions);
 
 builder.Services.AddHttpClient("RagApi", client =>
 {
-    client.BaseAddress = new Uri(
-        builder.Configuration["ApiUrl"] ?? "https://localhost:65287");
+    var baseUrl = builder.Configuration["Api:BaseUrl"] ?? "https://localhost:65287";
+    client.BaseAddress = new Uri(baseUrl);
+
+    client.Timeout = TimeSpan.FromMinutes(10);
 })
 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
 {
@@ -80,8 +82,8 @@ builder.Services.AddHttpClient("RagApi", client =>
 
 builder.Services.AddHttpClient("RagApp", client =>
 {
-    client.BaseAddress = new Uri(
-        builder.Configuration["AppUrl"] ?? "https://localhost:7269");
+    var baseUrl = builder.Configuration["App:BaseUrl"] ?? "https://localhost:7269";
+    client.BaseAddress = new Uri(baseUrl);
 })
 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
 {
