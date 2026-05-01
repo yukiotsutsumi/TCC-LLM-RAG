@@ -77,7 +77,7 @@ public class RagService(
     // ── Prompt ─────────────────────────────────────────────────
 
     private static string BuildPrompt(
-        IReadOnlyList<Rag.Core.Domain.Models.KnnResultDto> top,
+        List<Rag.Core.Domain.Models.KnnResultDto> top,
         string question,
         List<HistoryMessage> history)
     {
@@ -133,7 +133,7 @@ public class RagService(
 
     private static List<SourceRef> BuildSources(
         IEnumerable<Rag.Core.Domain.Models.KnnResultDto> top) =>
-        top
+        [.. top
             .GroupBy(t => t.Chunk.DocumentId)
             .Select(g =>
             {
@@ -145,8 +145,7 @@ public class RagService(
                     Source  = best.DocumentSource ?? best.Chunk.DocumentId.ToString(),
                     Snippet = Trim(best.Chunk.Content, 300)
                 };
-            })
-            .ToList();
+            })];
 
     private static string Trim(string s, int max) =>
         s.Length > max ? s[..max] + "..." : s;

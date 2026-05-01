@@ -229,19 +229,21 @@
         isLoading = true;
         question = "";
 
+        var history = BuildHistory();
+
         _messages.Add(new ChatMessage
         {
-            Content   = userQuestion,
-            IsUser    = true,
+            Content = userQuestion,
+            IsUser = true,
             Timestamp = DateTime.Now
         });
 
         var assistantMsg = new ChatMessage
         {
-            IsUser     = false,
+            IsUser = false,
             IsStreaming = true,
-            Content    = "",
-            Sources    = null
+            Content = "",
+            Sources = null
         };
         _messages.Add(assistantMsg);
 
@@ -249,11 +251,6 @@
         await ScrollToBottom();
 
         cts = new CancellationTokenSource();
-
-        // Histórico construído antes de adicionar a mensagem atual
-        var history = BuildHistory()
-            .Where(m => m.Content != userQuestion) // exclui a pergunta atual
-            .ToList();
 
         var req = new AskRequest
         {
@@ -279,9 +276,12 @@
                     catch (ObjectDisposedException) { break; }
                     catch (InvalidOperationException) { break; }
                 }
-                else if (part.Kind == StreamPartKind.Finished && part.Sources != null)
+                else if (part.Kind == StreamPartKind.Finished)
                 {
-                    assistantMsg.Sources = part.Sources.ToList();
+                    if (part.Sources != null)
+                        assistantMsg.Sources = part.Sources.ToList();
+
+                    break;
                 }
             }
 
