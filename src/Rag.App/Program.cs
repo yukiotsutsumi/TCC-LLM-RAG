@@ -35,8 +35,8 @@ builder.Services.AddAuthentication("RagAuth")
         options.Events.OnRedirectToLogin = context =>
         {
             var isApiRequest = context.Request.Path.StartsWithSegments("/api")
-                || context.Request.Headers["Accept"].ToString().Contains("application/json")
-                && !context.Request.Headers["Accept"].ToString().Contains("text/html");
+                || context.Request.Headers.Accept.ToString().Contains("application/json")
+                && !context.Request.Headers.Accept.ToString().Contains("text/html");
 
             if (isApiRequest)
             {

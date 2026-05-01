@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-using Rag.Core.Domain.DTOs.Ask.Requests;
+﻿using Rag.Core.Domain.DTOs.Ask.Requests;
 using Rag.Core.Domain.DTOs.Ask.Responses;
 using Rag.Core.Domain.DTOs.ResponseAI;
 using Rag.Core.Interfaces.Services;
@@ -27,30 +26,30 @@ public class RagServiceClient(
 
         using var response = await httpClient.SendAsync(
             httpRequest,
-            HttpCompletionOption.ResponseHeadersRead, // não espera o body inteiro
+            HttpCompletionOption.ResponseHeadersRead,
             ct);
 
         response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
 
-        // Buffer de 1 byte — desativa o buffer interno do StreamReader
-        // Sem isso o StreamReader acumula chunks e entrega tudo de uma vez
         using var reader = new StreamReader(stream, bufferSize: 1);
 
-        while (!reader.EndOfStream && !ct.IsCancellationRequested)
+        while (!ct.IsCancellationRequested)
         {
             var line = await reader.ReadLineAsync(ct);
-            if (string.IsNullOrWhiteSpace(line)) continue;
+            if (line is null)
 
-            StreamPart? part = null;
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            StreamPart? part;
             try
             {
                 part = JsonSerializer.Deserialize<StreamPart>(line, jsonOptions);
             }
             catch (JsonException)
             {
-                // linha malformada — ignora e continua
                 continue;
             }
 

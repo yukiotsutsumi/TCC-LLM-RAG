@@ -153,11 +153,25 @@ namespace Rag.Infrastructure.Llm
             using var stream = await res.Content.ReadAsStreamAsync(ct);
             using var reader = new StreamReader(stream);
 
-            while (!reader.EndOfStream)
+            while (true)
             {
                 ct.ThrowIfCancellationRequested();
-                var line = await reader.ReadLineAsync(ct);
-                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                string? line;
+                try
+                {
+                    line = await reader.ReadLineAsync(ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    yield break;
+                }
+
+                if (line is null)
+                    yield break;
+
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
 
                 string? delta = null;
 

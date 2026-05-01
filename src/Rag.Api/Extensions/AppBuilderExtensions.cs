@@ -11,7 +11,7 @@ public static class AppBuilderExtensions
         {
             ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor
         };
-        fwd.KnownNetworks.Clear();
+        fwd.KnownIPNetworks.Clear();
         fwd.KnownProxies.Clear();
         app.UseForwardedHeaders(fwd);
         return app;
