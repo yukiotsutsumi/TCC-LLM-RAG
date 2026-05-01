@@ -271,18 +271,13 @@
                     assistantMsg.Content += part.Delta;
                     status = "Gerando resposta...";
 
-                    var now = DateTime.UtcNow;
-                    if ((now - _lastRender).TotalMilliseconds >= RenderIntervalMs)
+                    try
                     {
-                        _lastRender = now;
-                        try
-                        {
-                            await InvokeAsync(StateHasChanged);
-                            await ScrollToBottom();
-                        }
-                        catch (ObjectDisposedException) { break; }
-                        catch (InvalidOperationException) { break; }
+                        await InvokeAsync(StateHasChanged);
+                        await ScrollToBottom();
                     }
+                    catch (ObjectDisposedException) { break; }
+                    catch (InvalidOperationException) { break; }
                 }
                 else if (part.Kind == StreamPartKind.Finished && part.Sources != null)
                 {

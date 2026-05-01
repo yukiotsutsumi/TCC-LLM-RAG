@@ -128,7 +128,10 @@ namespace Rag.Infrastructure.Llm
             throw new InvalidOperationException("Resposta de geração sem campo 'response'.");
         }
 
-        public async IAsyncEnumerable<string> GenerateStreamAsync(string model, string prompt, [EnumeratorCancellation] CancellationToken ct = default)
+        public async IAsyncEnumerable<string> GenerateStreamAsync(
+            string model,
+            string prompt,
+            [EnumeratorCancellation] CancellationToken ct = default)
         {
             var payload = new
             {
@@ -142,22 +145,30 @@ namespace Rag.Infrastructure.Llm
                 }
             };
 
-            using var content = new StringContent(
-                JsonSerializer.Serialize(payload, JsonOpts),
-                Encoding.UTF8,
-                "application/json");
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/generate")
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(payload, JsonOpts),
+                    Encoding.UTF8,
+                    "application/json")
+            };
 
-            using var res = await http.PostAsync("/api/generate", content, ct);
+            using var res = await http.SendAsync(
+                req,
+                HttpCompletionOption.ResponseHeadersRead,
+                ct);
+
             res.EnsureSuccessStatusCode();
 
-            using var stream = await res.Content.ReadAsStreamAsync(ct);
-            using var reader = new StreamReader(stream);
+            await using var stream = await res.Content.ReadAsStreamAsync(ct);
+            using var reader = new StreamReader(stream, Encoding.UTF8);
 
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
 
                 string? line;
+
                 try
                 {
                     line = await reader.ReadLineAsync(ct);
@@ -174,27 +185,35 @@ namespace Rag.Infrastructure.Llm
                     continue;
 
                 string? delta = null;
+                var done = false;
 
                 try
                 {
                     using var doc = JsonDocument.Parse(line);
+
                     if (doc.RootElement.TryGetProperty("response", out var resp))
-                    {
                         delta = resp.GetString();
-                    }
+
+                    if (doc.RootElement.TryGetProperty("done", out var doneProp))
+                        done = doneProp.GetBoolean();
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, "Falha ao desserializar linha do stream do Ollama. Linha truncada: {Line}", Trunc(line, 300));
+                    logger.LogWarning(
+                        ex,
+                        "Falha ao desserializar linha do stream do Ollama. Linha truncada: {Line}",
+                        Trunc(line, 300));
+
+                    continue;
                 }
 
                 if (!string.IsNullOrEmpty(delta))
-                {
                     yield return delta;
-                }
+
+                if (done)
+                    yield break;
             }
         }
-
         private static string Trunc(string s, int max) => string.IsNullOrEmpty(s) ? s : (s.Length > max ? s[..max] + "..." : s);
     }
 }
