@@ -295,3 +295,20 @@
     font-size: 0.88rem;
     margin: 0;
 }
+
+/* ── Toast ───────────────────────────────────────────── */
+.toast-global {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    margin: 8px auto;
+    max-width: 720px;
+    background: #2b2f3a;
+    color: #ffd9d9;
+    border: 1px solid #ff6b6b33;
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 6px 18px rgba(0,0,0,.25);
+}

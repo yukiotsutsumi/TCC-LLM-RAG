@@ -66,6 +66,19 @@
         }
     </div>
 
+    @if (status == "Gerando resposta...")
+    {
+        <div class="chat-status"><small>@status</small></div>
+    }
+
+    @if (!string.IsNullOrEmpty(toastMsg))
+    {
+        <div class="toast-global">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            @toastMsg
+        </div>
+    }
+
     @* Mensagens *@
     <div class="chat-messages" id="chatWindow">
 
@@ -102,6 +115,15 @@
                             }
                         }
                     </div>
+
+                    @if (!msg.IsStreaming && msg.CanRetry)
+                    {
+                        <div class="mt-2">
+                            <button class="btn btn-outline-light btn-sm" @onclick="() => Retry(msg)">
+                                <i class="bi bi-arrow-repeat me-1"></i>Tentar novamente
+                            </button>
+                        </div>
+                    }
 
                     @* Fontes dentro da bolha *@
                     @if (!msg.IsStreaming && msg.Sources?.Any() == true)
@@ -190,6 +212,8 @@
         public bool IsStreaming { get; set; }
         public List<SourceRef>? Sources { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.Now;
+        public bool CanRetry { get; set; }
+        public AskRequest? LastRequest { get; set; }
     }
 
     private void NewConversation()
@@ -238,26 +262,36 @@
             Timestamp = DateTime.Now
         });
 
-        var assistantMsg = new ChatMessage
-        {
-            IsUser = false,
-            IsStreaming = true,
-            Content = "",
-            Sources = null
-        };
-        _messages.Add(assistantMsg);
-
         await InvokeAsync(StateHasChanged);
         await ScrollToBottom();
+
+        ChatMessage? assistantMsg = null;
 
         cts = new CancellationTokenSource();
 
         var req = new AskRequest
         {
             Question = userQuestion,
-            K        = 5,
-            History  = history
+            K = 5,
+            History = history
         };
+
+        ChatMessage MakeAssistant()
+        {
+            assistantMsg ??= new ChatMessage
+            {
+                IsUser = false,
+                IsStreaming = true,
+                Content = "",
+                Sources = null,
+                LastRequest = req
+            };
+            if (!_messages.Contains(assistantMsg))
+            {
+                _messages.Add(assistantMsg);
+            }
+            return assistantMsg;
+        }
 
         try
         {
@@ -265,42 +299,61 @@
             {
                 if (part.Kind == StreamPartKind.Delta && !string.IsNullOrEmpty(part.Delta))
                 {
-                    assistantMsg.Content += part.Delta;
+                    var am = MakeAssistant();
+                    am.Content += part.Delta;
                     status = "Gerando resposta...";
-
-                    try
-                    {
-                        await InvokeAsync(StateHasChanged);
-                        await ScrollToBottom();
-                    }
-                    catch (ObjectDisposedException) { break; }
-                    catch (InvalidOperationException) { break; }
+                    await InvokeAsync(StateHasChanged);
+                    await ScrollToBottom();
                 }
                 else if (part.Kind == StreamPartKind.Finished)
                 {
-                    if (part.Sources != null)
+                    if (assistantMsg is not null && part.Sources != null)
                         assistantMsg.Sources = part.Sources.ToList();
-
                     break;
                 }
             }
-
             status = "Concluído";
         }
         catch (OperationCanceledException)
         {
-            assistantMsg.Content += " [cancelado]";
+            if (assistantMsg is not null && string.IsNullOrWhiteSpace(assistantMsg.Content))
+                assistantMsg.Content = "Operação cancelada.";
             status = "Cancelado";
+            ShowToast("Operação cancelada.");
         }
         catch (Exception ex)
         {
-            assistantMsg.Content = $"Erro: {ex.Message}";
+            var friendly = HumanizeError(ex);
+
+            if (assistantMsg is null)
+            {
+                assistantMsg = new ChatMessage
+                {
+                    IsUser = false,
+                    IsStreaming = false,
+                    Content = friendly,
+                    CanRetry = true,
+                    LastRequest = req,
+                    Timestamp = DateTime.Now
+                };
+                _messages.Add(assistantMsg);
+            }
+            else if (string.IsNullOrWhiteSpace(assistantMsg.Content))
+            {
+                assistantMsg.Content = friendly;
+                assistantMsg.CanRetry = true;
+                assistantMsg.LastRequest = req;
+            }
+            ShowToast(friendly);
             status = "Erro";
         }
         finally
         {
-            assistantMsg.IsStreaming = false;
-            assistantMsg.Timestamp  = DateTime.Now;
+            if (assistantMsg is not null)
+            {
+                assistantMsg.IsStreaming = false;
+                assistantMsg.Timestamp = DateTime.Now;
+            }
             isLoading = false;
             cts?.Dispose();
             cts = null;
@@ -310,8 +363,7 @@
                 await InvokeAsync(StateHasChanged);
                 await ScrollToBottom();
             }
-            catch (ObjectDisposedException) { }
-            catch (InvalidOperationException) { }
+            catch { }
         }
     }
 
@@ -363,5 +415,122 @@
             await JS.InvokeVoidAsync("scrollChatToBottom", "chatWindow");
         }
         catch { }
+    }
+
+    private static string HumanizeError(Exception ex)
+    {
+        if (ex is OperationCanceledException or TaskCanceledException)
+            return "Operação cancelada.";
+
+        if (ex is HttpRequestException hre && hre.StatusCode.HasValue)
+        {
+            var code = (int)hre.StatusCode.Value;
+            if (code == 503) return "Um serviço necessário está temporariamente indisponível. Tente novamente em instantes.";
+            if (code >= 500) return "Não foi possível processar sua solicitação agora. Tente novamente em instantes.";
+            if (code == 408) return "A solicitação demorou mais do que o esperado. Tente novamente em instantes.";
+        }
+
+        var msg = ex.Message?.ToLowerInvariant() ?? "";
+        if (msg.Contains("connection refused") || msg.Contains("no such host") ||
+            msg.Contains("name or service not known") || msg.Contains("temporarily unavailable") ||
+            msg.Contains("503") || msg.Contains("service unavailable"))
+            return "Um serviço necessário está temporariamente indisponível. Tente novamente em instantes.";
+
+        if (msg.Contains("timed out") || msg.Contains("timeout"))
+            return "A solicitação demorou mais do que o esperado. Tente novamente em instantes.";
+
+        if (msg.Contains("500") || msg.Contains("internal server error"))
+            return "Não foi possível processar sua solicitação agora. Tente novamente em instantes.";
+
+        return "Ocorreu um erro ao processar sua solicitação. Tente novamente.";
+    }
+
+    private string? toastMsg;
+    private CancellationTokenSource? toastCts;
+
+    private void ShowToast(string message, int ms = 5000)
+    {
+        toastCts?.Cancel();
+        toastCts?.Dispose();
+
+        toastMsg = message;
+        toastCts = new CancellationTokenSource();
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(ms, toastCts.Token);
+                toastMsg = null;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch { /* cancelado */ }
+        });
+    }
+
+    private async Task Retry(ChatMessage failedMsg)
+    {
+        if (failedMsg.LastRequest is null || isLoading) return;
+        question = "";
+        failedMsg.CanRetry = false;
+        await AskRagWithRequest(failedMsg.LastRequest);
+    }
+
+    private async Task AskRagWithRequest(AskRequest req)
+    {
+        if (isLoading) return;
+
+        status = "Aguardando resposta...";
+        isLoading = true;
+
+        var assistantMsg = new ChatMessage { IsUser = false, IsStreaming = true, Content = "" };
+        _messages.Add(assistantMsg);
+        await InvokeAsync(StateHasChanged);
+        await ScrollToBottom();
+
+        cts = new CancellationTokenSource();
+
+        try
+        {
+            await foreach (var part in RagService.AskStreamAsync(req, cts.Token))
+            {
+                if (part.Kind == StreamPartKind.Delta && !string.IsNullOrEmpty(part.Delta))
+                {
+                    assistantMsg.Content += part.Delta;
+                    status = "Gerando resposta...";
+                    await InvokeAsync(StateHasChanged);
+                    await ScrollToBottom();
+                }
+                else if (part.Kind == StreamPartKind.Finished)
+                {
+                    if (part.Sources != null) assistantMsg.Sources = part.Sources.ToList();
+                    break;
+                }
+            }
+            status = "Concluído";
+        }
+        catch (Exception ex)
+        {
+            var friendly = HumanizeError(ex);
+            if (string.IsNullOrWhiteSpace(assistantMsg.Content))
+            {
+                assistantMsg.Content = friendly;
+                assistantMsg.CanRetry = true;
+                assistantMsg.LastRequest = req;
+            }
+            ShowToast(friendly);
+            status = "Erro";
+        }
+        finally
+        {
+            assistantMsg.IsStreaming = false;
+            assistantMsg.Timestamp = DateTime.Now;
+            isLoading = false;
+            cts?.Dispose();
+            cts = null;
+            RefreshExportLink();
+            await InvokeAsync(StateHasChanged);
+            await ScrollToBottom();
+        }
     }
 }
