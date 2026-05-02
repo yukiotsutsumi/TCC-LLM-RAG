@@ -95,7 +95,7 @@ services:
       - Jwt__SecretKey=${JWT_SECRET}
       - Ollama__BaseUrl=http://ollama:11434
       - Cors__AllowedOrigins__0=https://localhost
-      - Observability__TempoEndpoint=http://tempo:4317
+      - Observability__TempoEndpoint=http://tempo:4318/v1/traces
     expose:
       - "8081"
     depends_on:

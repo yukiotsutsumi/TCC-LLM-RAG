@@ -11,9 +11,6 @@ public static class ObservabilityExtensions
         var tempoEndpoint = configuration["Observability:TempoEndpoint"];
         var tempoEnabled = !string.IsNullOrWhiteSpace(tempoEndpoint);
 
-        Console.WriteLine($">>> Tempo endpoint: {tempoEndpoint}");
-        Console.WriteLine($">>> Tempo enabled: {tempoEnabled}");
-
         services.AddOpenTelemetry()
             .ConfigureResource(r => r.AddService("rag-api", serviceVersion: "1.0.0"))
             .WithMetrics(m => m
@@ -31,7 +28,7 @@ public static class ObservabilityExtensions
                     t.AddOtlpExporter(o =>
                     {
                         o.Endpoint = new Uri(tempoEndpoint!);
-                        o.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.Grpc;
+                        o.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf;
                     });
                 }
             });
