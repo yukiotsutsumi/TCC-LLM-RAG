@@ -11,8 +11,11 @@ public static class ObservabilityExtensions
         var tempoEndpoint = configuration["Observability:TempoEndpoint"];
         var tempoEnabled = !string.IsNullOrWhiteSpace(tempoEndpoint);
 
+        Console.WriteLine($">>> Tempo endpoint: {tempoEndpoint}");
+        Console.WriteLine($">>> Tempo enabled: {tempoEnabled}");
+
         services.AddOpenTelemetry()
-            .ConfigureResource(r => r.AddService("rag-app", serviceVersion: "1.0.0"))
+            .ConfigureResource(r => r.AddService("rag-api", serviceVersion: "1.0.0"))
             .WithMetrics(m => m
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
