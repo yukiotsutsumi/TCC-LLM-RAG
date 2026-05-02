@@ -55,6 +55,7 @@ public class ChunkRepository(AppDbContext db) : IChunkRepository
     public async Task<IReadOnlyList<KnnResultDto>> QueryKnnAsync(
         Vector queryEmbedding,
         int k,
+        int maxAccessLevel,
         KnnMetric metric = KnnMetric.Cosine,
         CancellationToken ct = default)
     {
@@ -65,46 +66,46 @@ public class ChunkRepository(AppDbContext db) : IChunkRepository
 
         var op = MetricToSqlOperator(metric);
 
-        // ← Score adicionado: distância cosine entre o chunk e a query
         var sql = $@"
-        SELECT 
-            c.""Id""                          AS ""Id"",
-            c.""DocumentId""                  AS ""DocumentId"",
-            c.""ChunkIndex""                  AS ""ChunkIndex"",
-            c.""Content""                     AS ""Content"",
-            c.""Embedding""                   AS ""Embedding"",
-            c.""MetadataJson""                AS ""MetadataJson"",
-            c.""UmapX""                       AS ""UmapX"",
-            c.""UmapY""                       AS ""UmapY"",
-            d.""Title""                       AS ""Title"",
-            d.""Source""                      AS ""Source"",
-            (c.""Embedding"" {op} @p0)        AS ""Score""
-        FROM ""Chunks"" c
-        JOIN ""Documents"" d ON d.""Id"" = c.""DocumentId""
-        ORDER BY c.""Embedding"" {op} @p0
-        LIMIT @p1;";
+            SELECT 
+                c.""Id""                          AS ""Id"",
+                c.""DocumentId""                  AS ""DocumentId"",
+                c.""ChunkIndex""                  AS ""ChunkIndex"",
+                c.""Content""                     AS ""Content"",
+                c.""Embedding""                   AS ""Embedding"",
+                c.""MetadataJson""                AS ""MetadataJson"",
+                c.""UmapX""                       AS ""UmapX"",
+                c.""UmapY""                       AS ""UmapY"",
+                d.""Title""                       AS ""Title"",
+                d.""Source""                      AS ""Source"",
+                (c.""Embedding"" {op} @p0)        AS ""Score""
+            FROM ""Chunks"" c
+            JOIN ""Documents"" d ON d.""Id"" = c.""DocumentId""
+            WHERE d.""AccessLevel"" <= @p1
+            ORDER BY c.""Embedding"" {op} @p0
+            LIMIT @p2;";
 
         var results = await db.Set<KnnRow>()
-            .FromSqlRaw(sql, queryEmbedding, k)
+            .FromSqlRaw(sql, queryEmbedding, maxAccessLevel, k)
             .AsNoTracking()
             .ToListAsync(ct);
 
-        return results.Select(r => new KnnResultDto(
+        return [.. results.Select(r => new KnnResultDto(
             new Chunk
             {
-                Id           = r.Id,
-                DocumentId   = r.DocumentId,
-                ChunkIndex   = r.ChunkIndex,
-                Content      = r.Content,
-                Embedding    = r.Embedding,
+                Id = r.Id,
+                DocumentId = r.DocumentId,
+                ChunkIndex = r.ChunkIndex,
+                Content = r.Content,
+                Embedding = r.Embedding,
                 MetadataJson = r.MetadataJson,
-                UmapX        = r.UmapX,
-                UmapY        = r.UmapY
+                UmapX = r.UmapX,
+                UmapY = r.UmapY
             },
             r.Title,
             r.Source,
-            r.Score  // ← repassa o score
-        )).ToList();
+            r.Score
+        ))];
     }
 
     private static string MetricToSqlOperator(KnnMetric metric) => metric switch
@@ -124,13 +125,5 @@ public class ChunkRepository(AppDbContext db) : IChunkRepository
         if (len != EmbeddingDim)
             throw new ArgumentException(
                 $"Embedding com dimensão inválida: esperado {EmbeddingDim}, recebido {len}.");
-    }
-
-    private static void ValidateEmbedding(Vector vec, int expectedDim)
-    {
-        var len = vec.ToArray().Length;
-        if (len != expectedDim)
-            throw new ArgumentException(
-                $"Embedding com dimensão inválida: esperado {expectedDim}, recebido {len}.");
     }
 }

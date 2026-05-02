@@ -9,9 +9,10 @@ namespace Rag.Core.Interfaces.Repositories
         Task InsertManyAsync(IEnumerable<Chunk> chunks, CancellationToken ct = default);
         Task UpdateProjectionAsync(IEnumerable<(Guid ChunkId, double X, double Y)> points, CancellationToken ct = default);
         Task<IReadOnlyList<KnnResultDto>> QueryKnnAsync(
-            Vector queryEmbedding,
-            int k,
-            KnnMetric metric = KnnMetric.Cosine,
-            CancellationToken ct = default);
+        Vector queryEmbedding,
+        int k,
+        int maxAccessLevel,
+        KnnMetric metric = KnnMetric.Cosine,
+        CancellationToken ct = default);
     }
 }

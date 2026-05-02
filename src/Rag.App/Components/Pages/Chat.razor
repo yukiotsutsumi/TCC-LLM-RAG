@@ -10,6 +10,7 @@
 @using Rag.Core.Domain.DTOs.Ask.Requests
 @using Rag.Core.Domain.DTOs.ResponseAI
 @using Rag.Core.Interfaces.Services
+@using Rag.Core.Domain.Enums
 
 @using Microsoft.Extensions.Caching.Memory
 @inject IMemoryCache _cache
@@ -65,11 +66,6 @@
             </div>
         }
     </div>
-
-    @if (status == "Gerando resposta...")
-    {
-        <div class="chat-status"><small>@status</small></div>
-    }
 
     @if (!string.IsNullOrEmpty(toastMsg))
     {
@@ -216,6 +212,17 @@
         public AskRequest? LastRequest { get; set; }
     }
 
+    private async Task<DocumentAccessLevel> GetCurrentAccessLevelAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.IsInRole("Admin"))
+            return DocumentAccessLevel.Admin;
+
+        return DocumentAccessLevel.User;
+    }
+
     private void NewConversation()
     {
         if (isLoading) return;
@@ -293,9 +300,11 @@
             return assistantMsg;
         }
 
+        var accessLevel = await GetCurrentAccessLevelAsync();
+
         try
         {
-            await foreach (var part in RagService.AskStreamAsync(req, cts.Token))
+            await foreach (var part in RagService.AskStreamAsync(req, accessLevel, cts.Token))
             {
                 if (part.Kind == StreamPartKind.Delta && !string.IsNullOrEmpty(part.Delta))
                 {
@@ -490,9 +499,11 @@
 
         cts = new CancellationTokenSource();
 
+        var accessLevel = await GetCurrentAccessLevelAsync();
+
         try
         {
-            await foreach (var part in RagService.AskStreamAsync(req, cts.Token))
+            await foreach (var part in RagService.AskStreamAsync(req, accessLevel, cts.Token))
             {
                 if (part.Kind == StreamPartKind.Delta && !string.IsNullOrEmpty(part.Delta))
                 {

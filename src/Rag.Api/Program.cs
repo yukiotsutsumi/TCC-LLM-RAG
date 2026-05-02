@@ -36,6 +36,17 @@ using (var scope = app.Services.CreateScope())
      db.Database.Migrate();
 }
 
+try
+{
+    await app.Services.SeedIdentityAsync();
+}
+catch (Exception ex)
+{
+    Console.WriteLine(">>> ERRO NO SEED IDENTITY");
+    Console.WriteLine(ex.ToString());
+    throw;
+}
+
 app.UseForwardedHeadersForProxy();
 app.UseEnvironmentSpecificMiddleware();
 app.UseAppCors();
@@ -52,5 +63,6 @@ app.MapAuthEndpoints();
 app.MapIngestEndpoints();
 app.MapDocumentEndpoints(); 
 app.UseRequestTimeouts();
+
 
 app.Run();

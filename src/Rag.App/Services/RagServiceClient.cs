@@ -1,6 +1,6 @@
 ﻿using Rag.Core.Domain.DTOs.Ask.Requests;
-using Rag.Core.Domain.DTOs.Ask.Responses;
 using Rag.Core.Domain.DTOs.ResponseAI;
+using Rag.Core.Domain.Enums;
 using Rag.Core.Interfaces.Services;
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
@@ -16,12 +16,14 @@ public class RagServiceClient(
 {
     public async IAsyncEnumerable<StreamPart> AskStreamAsync(
         AskRequest request,
+        DocumentAccessLevel accessLevel,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/ask/stream")
         {
             Content = JsonContent.Create(request, options: jsonOptions)
         };
+
         AddBearerToken(httpRequest);
 
         using var response = await httpClient.SendAsync(
@@ -32,13 +34,13 @@ public class RagServiceClient(
         response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
-
         using var reader = new StreamReader(stream, bufferSize: 1);
 
         while (!ct.IsCancellationRequested)
         {
             var line = await reader.ReadLineAsync(ct);
             if (line is null)
+                yield break;
 
             if (string.IsNullOrWhiteSpace(line))
                 continue;
@@ -58,28 +60,15 @@ public class RagServiceClient(
         }
     }
 
-    public async Task<AskResponse> AskAsync(AskRequest request)
-    {
-        var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/ask")
-        {
-            Content = JsonContent.Create(request, options: jsonOptions)
-        };
-        AddBearerToken(httpRequest);
-
-        var response = await httpClient.SendAsync(httpRequest);
-        response.EnsureSuccessStatusCode();
-
-        return await response.Content.ReadFromJsonAsync<AskResponse>(jsonOptions)
-               ?? throw new InvalidOperationException("Resposta inválida da API.");
-    }
-
     private void AddBearerToken(HttpRequestMessage request)
     {
         var token = httpContextAccessor.HttpContext?
             .User?.FindFirstValue("access_token");
 
         if (!string.IsNullOrEmpty(token))
+        {
             request.Headers.Authorization =
                 new AuthenticationHeaderValue("Bearer", token);
+        }
     }
 }
