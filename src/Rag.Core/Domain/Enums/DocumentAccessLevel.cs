@@ -7,3 +7,12 @@
         Admin = 2
     }
 }
+
+namespace Rag.Core.Domain.Enums
+{
+    public enum DocumentAction
+    {
+        Ingest = 0,
+        Delete = 1
+    }
+}

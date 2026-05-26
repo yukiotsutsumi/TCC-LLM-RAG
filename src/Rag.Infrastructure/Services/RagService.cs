@@ -7,6 +7,8 @@ using Rag.Core.Interfaces.Repositories;
 using Rag.Core.Interfaces.Services;
 using Rag.Infrastructure.Llm;
 using System.Runtime.CompilerServices;
+using System.Diagnostics;
+using Pgvector;
 
 namespace Rag.Infrastructure.Services;
 
@@ -16,6 +18,7 @@ public class RagService(
     Microsoft.Extensions.Options.IOptions<OllamaOptions> opt) : IRagService
 {
     private readonly OllamaOptions _opt = opt.Value;
+    private static readonly ActivitySource Activity = new("RagService.ActivitySource");
 
     private const double SimilarityThreshold = 0.35;
     private const int MaxHistoryTurns = 5;
@@ -25,14 +28,27 @@ public class RagService(
         DocumentAccessLevel accessLevel,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        var qEmb = await ollama.EmbedAsync(_opt.EmbeddingModel, request.Question, ct);
+        using var askActivity = Activity.StartActivity("RAG Ask", ActivityKind.Internal);
+        askActivity?.SetTag("rag.k", request.K);
+        askActivity?.SetTag("rag.access_level", (int)accessLevel);
 
-        var allTop = (await chunks.QueryKnnAsync(
-                qEmb,
-                request.K,
-                (int)accessLevel,
-                ct: ct))
-            .ToList();
+        Vector qEmb;
+        using (var span = Activity.StartActivity("Embed", ActivityKind.Internal))
+        {
+            qEmb = await ollama.EmbedAsync(_opt.EmbeddingModel, request.Question, ct);
+        }
+
+        List<Rag.Core.Domain.Models.KnnResultDto> allTop;
+        using (var span = Activity.StartActivity("QueryKnn", ActivityKind.Internal))
+        {
+            allTop = (await chunks.QueryKnnAsync(
+                    qEmb,
+                    request.K,
+                    (int)accessLevel,
+                    ct: ct))
+                .ToList();
+            span?.SetTag("knn.returned", allTop.Count);
+        }
 
         foreach (var t in allTop)
             Console.WriteLine($">>> Score: {t.Score:F4} | {t.DocumentTitle}");
@@ -41,13 +57,23 @@ public class RagService(
             .Where(t => t.Score <= SimilarityThreshold)
             .ToList();
 
+        askActivity?.SetTag("knn.used", top.Count);
+
         Console.WriteLine($">>> Threshold: {SimilarityThreshold} | Chunks usados: {top.Count}/{allTop.Count}");
 
-        var prompt = BuildPrompt(top, request.Question, request.History);
+        string prompt;
+        using (var span = Activity.StartActivity("BuildPrompt", ActivityKind.Internal))
+        {
+            prompt = BuildPrompt(top, request.Question, request.History);
+            span?.SetTag("prompt.length", prompt.Length);
+        }
 
         await using var enumerator = ollama
             .GenerateStreamAsync(_opt.GenerationModel, prompt, ct)
             .GetAsyncEnumerator(ct);
+
+        using var genSpan = Activity.StartActivity("Generate", ActivityKind.Internal);
+        genSpan?.SetTag("model", _opt.GenerationModel);
 
         while (true)
         {

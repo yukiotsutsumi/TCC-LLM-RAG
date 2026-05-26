@@ -27,6 +27,17 @@ public class IngestionService(
         };
         await docs.InsertAsync(doc);
 
+        // Audit: record ingest action
+        var audit = new Rag.Core.Domain.Entities.DocumentAuditLog
+        {
+            DocumentId = doc.Id,
+            Action = Rag.Core.Domain.Enums.DocumentAction.Ingest,
+            Details = $"Ingested document '{doc.Title}' source='{doc.Source}'",
+            PerformedByUserId = null,
+            PerformedAt = DateTime.UtcNow
+        };
+        await docs.AddDocumentAuditAsync(audit, ct);
+
         var split = chunker.Split(request.Text).ToList();
         if (split.Count == 0)
             return new IngestTextResponse(doc.Id, 0);

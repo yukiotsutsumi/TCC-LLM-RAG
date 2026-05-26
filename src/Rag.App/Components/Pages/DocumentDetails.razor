@@ -1,6 +1,6 @@
 @page "/ingest/{Id:guid}"
 @rendermode InteractiveServer
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin")]
 @using Microsoft.AspNetCore.Authorization
 @using Rag.Core.Domain.DTOs.Documents
 @using Rag.Core.Domain.DTOs.Documents.Response
@@ -69,6 +69,13 @@
                 <a class="btn btn-primary btn-sm" href="/chat">
                     <i class="bi bi-chat-dots me-1"></i>Usar no chat
                 </a>
+                <div>
+                    <select class="form-select form-select-sm me-2" @onchange="ChangeAccessLevel">
+                        <option value="0" selected="@(( _doc?.AccessLevel ?? Rag.Core.Domain.Enums.DocumentAccessLevel.User) == Rag.Core.Domain.Enums.DocumentAccessLevel.Public)">Público</option>
+                        <option value="1" selected="@(( _doc?.AccessLevel ?? Rag.Core.Domain.Enums.DocumentAccessLevel.User) == Rag.Core.Domain.Enums.DocumentAccessLevel.User)">Usuário</option>
+                        <option value="2" selected="@(( _doc?.AccessLevel ?? Rag.Core.Domain.Enums.DocumentAccessLevel.User) == Rag.Core.Domain.Enums.DocumentAccessLevel.Admin)">Admin</option>
+                    </select>
+                </div>
                 <button class="btn btn-danger btn-sm @(_isDeleting ? "is-loading" : "")"
                         @onclick="ConfirmDelete"
                         disabled="@_isDeleting">
@@ -82,22 +89,22 @@
             <div class="stat-card slide-up stagger-1">
                 <div class="stat-label">Status</div>
                 <div class="stat-value" style="font-size:1.1rem;">
-                    <span class="badge @(_doc.Status == "ready" ? "badge-ready" : "badge-processing")">
-                        @(_doc.Status == "ready" ? "Pronto" : "Processando")
+                    <span class="badge @(_doc!.Status == "ready" ? "badge-ready" : "badge-processing")">
+                        @(_doc!.Status == "ready" ? "Pronto" : "Processando")
                     </span>
                 </div>
             </div>
             <div class="stat-card slide-up stagger-2">
                 <div class="stat-label">Chunks</div>
-                <div class="stat-value">@_doc.ChunkCount</div>
+                <div class="stat-value">@_doc!.ChunkCount</div>
                 <div class="stat-sub">fragmentos indexados</div>
             </div>
             <div class="stat-card slide-up stagger-3">
                 <div class="stat-label">Indexado em</div>
                 <div class="stat-value" style="font-size:1rem;">
-                    @_doc.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")
+                    @_doc!.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")
                 </div>
-                <div class="stat-sub">@_doc.CreatedAt.ToLocalTime().ToString("HH:mm")</div>
+                <div class="stat-sub">@_doc!.CreatedAt.ToLocalTime().ToString("HH:mm")</div>
             </div>
         </div>
 
@@ -195,6 +202,35 @@
         {
             _isDeleting      = false;
             _showDeleteModal = false;
+        }
+    }
+
+    private async Task ChangeAccessLevel(ChangeEventArgs e)
+    {
+        if (_doc == null) return;
+        if (e?.Value == null) return;
+        if (!int.TryParse(e.Value.ToString(), out var val)) return;
+
+        var level = (Rag.Core.Domain.Enums.DocumentAccessLevel)val;
+        try
+        {
+            var ok = await IngestionService.UpdateDocumentAccessLevelAsync(_doc.Id, level);
+            if (ok)
+            {
+                _doc = await IngestionService.GetDocumentAsync(_doc.Id);
+                _message = "Nível de acesso atualizado.";
+                _isError = false;
+            }
+            else
+            {
+                _message = "Não foi possível atualizar o nível de acesso.";
+                _isError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"Erro ao atualizar nível: {ex.Message}";
+            _isError = true;
         }
     }
 }

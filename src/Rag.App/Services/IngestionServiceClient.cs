@@ -99,6 +99,14 @@ public class IngestionServiceClient(
                ?? throw new InvalidOperationException("Resposta inválida da API.");
     }
 
+    public async Task<bool> UpdateDocumentAccessLevelAsync(Guid id, Rag.Core.Domain.Enums.DocumentAccessLevel level, CancellationToken ct = default)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Put, $"api/documents/{id}/access-level?level={level}");
+        AddBearerToken(req);
+        var response = await httpClient.SendAsync(req, ct);
+        return response.IsSuccessStatusCode;
+    }
+
     private void AddBearerToken(HttpRequestMessage request)
     {
         var token = httpContextAccessor.HttpContext?.User?.FindFirstValue("access_token");

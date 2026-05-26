@@ -23,6 +23,9 @@ public static class ObservabilityExtensions
                 t.AddAspNetCoreInstrumentation()
                  .AddHttpClientInstrumentation();
 
+                // Trace EF Core database calls (query timings)
+                t.AddEntityFrameworkCoreInstrumentation();
+
                 if (tempoEnabled)
                 {
                     t.AddOtlpExporter(o =>

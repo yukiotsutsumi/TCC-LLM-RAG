@@ -12,6 +12,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
     public DbSet<Chunk> Chunks => Set<Chunk>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<RevokedToken> RevokedTokens => Set<RevokedToken>();
+    public DbSet<Rag.Core.Domain.Entities.AccessLevelChangeLog> AccessLevelChangeLogs => Set<Rag.Core.Domain.Entities.AccessLevelChangeLog>();
+    public DbSet<Rag.Core.Domain.Entities.DocumentAuditLog> DocumentAuditLogs => Set<Rag.Core.Domain.Entities.DocumentAuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -89,6 +91,28 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbCo
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.Jti).IsUnique();
             e.HasIndex(x => x.ExpiresAt);
+        });
+
+        modelBuilder.Entity<Rag.Core.Domain.Entities.AccessLevelChangeLog>(e =>
+        {
+            e.ToTable("AccessLevelChangeLogs");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.DocumentId).IsRequired();
+            e.Property(x => x.OldLevel).IsRequired();
+            e.Property(x => x.NewLevel).IsRequired();
+            e.Property(x => x.ChangedByUserId);
+            e.Property(x => x.ChangedAt).IsRequired();
+        });
+
+        modelBuilder.Entity<Rag.Core.Domain.Entities.DocumentAuditLog>(e =>
+        {
+            e.ToTable("DocumentAuditLogs");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.DocumentId).IsRequired();
+            e.Property(x => x.Action).IsRequired();
+            e.Property(x => x.Details).HasColumnType("text");
+            e.Property(x => x.PerformedByUserId);
+            e.Property(x => x.PerformedAt).IsRequired();
         });
 
         modelBuilder.Entity<User>().ToTable("users");

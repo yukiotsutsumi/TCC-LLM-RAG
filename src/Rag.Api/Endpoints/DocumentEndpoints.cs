@@ -20,7 +20,8 @@ public static class DocumentEndpoints
                 d.Source,
                 d.CreatedAt,
                 d.Chunks.Count,
-                d.Chunks.Count > 0 ? "ready" : "processing"
+                d.Chunks.Count > 0 ? "ready" : "processing",
+                d.AccessLevel
             ));
             return Results.Ok(result);
         });
@@ -43,7 +44,8 @@ public static class DocumentEndpoints
                 doc.Source,
                 doc.CreatedAt,
                 doc.Chunks.Count,
-                doc.Chunks.Count > 0 ? "ready" : "processing"
+                doc.Chunks.Count > 0 ? "ready" : "processing",
+                doc.AccessLevel
             );
             return Results.Ok(dto);
         });
@@ -55,6 +57,18 @@ public static class DocumentEndpoints
                 ? Results.Ok(new DeleteDocumentResponse(true, "Documento removido com sucesso."))
                 : Results.NotFound(new DeleteDocumentResponse(false, "Documento não encontrado."));
         });
+
+        group.MapPut("/{id:guid}/access-level", async (Guid id, Rag.Core.Domain.Enums.DocumentAccessLevel level, IDocumentRepository repo, System.Security.Claims.ClaimsPrincipal user) =>
+        {
+            Guid? userId = null;
+            var sub = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst("sub")?.Value;
+            if (!string.IsNullOrEmpty(sub) && Guid.TryParse(sub, out var g)) userId = g;
+
+            var updated = await repo.UpdateAccessLevelAsync(id, level, userId);
+            return updated
+                ? Results.Ok(new { Success = true, Message = "Nível de acesso atualizado." })
+                : Results.NotFound(new { Success = false, Message = "Documento não encontrado." });
+        }).RequireAuthorization("AdminPolicy");
 
         return routes;
     }

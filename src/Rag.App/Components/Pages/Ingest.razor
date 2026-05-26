@@ -1,6 +1,6 @@
 @page "/ingest"
 @rendermode InteractiveServer
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Admin")]
 @using Microsoft.AspNetCore.Authorization
 @using Rag.Core.Domain.DTOs.Documents
 @using Rag.Core.Domain.DTOs.Documents.Response
@@ -116,6 +116,14 @@
                             <span class="doc-card-date">
                                 @doc.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")
                             </span>
+                            <div class="doc-card-access ms-2">
+                                <label class="form-label visually-hidden">Nível</label>
+                                <select class="form-select form-select-sm" @onclick:stopPropagation="true" @onchange="async e => await ChangeAccessLevel(doc.Id, e)">
+                                    <option value="0" selected="@(doc.AccessLevel == Rag.Core.Domain.Enums.DocumentAccessLevel.Public)">Público</option>
+                                    <option value="1" selected="@(doc.AccessLevel == Rag.Core.Domain.Enums.DocumentAccessLevel.User)">Usuário</option>
+                                    <option value="2" selected="@(doc.AccessLevel == Rag.Core.Domain.Enums.DocumentAccessLevel.Admin)">Admin</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <button class="doc-card-delete"
@@ -475,4 +483,24 @@
 
     private void GoToDetails(Guid id) =>
         Nav.NavigateTo($"/ingest/{id}");
+
+    private async Task ChangeAccessLevel(Guid id, ChangeEventArgs e)
+    {
+        if (e?.Value == null) return;
+        if (!int.TryParse(e.Value.ToString(), out var val)) return;
+
+        var level = (Rag.Core.Domain.Enums.DocumentAccessLevel)val;
+        try
+        {
+            var ok = await IngestionService.UpdateDocumentAccessLevelAsync(id, level);
+            if (ok)
+                await LoadData();
+            else
+                _errorMessage = "Não foi possível atualizar o nível de acesso.";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Erro ao atualizar nível: {ex.Message}";
+        }
+    }
 }

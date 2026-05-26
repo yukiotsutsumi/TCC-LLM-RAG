@@ -20,6 +20,11 @@ builder.Services.AddAppServices(builder.Configuration);
 builder.Services.AddObservability(builder.Configuration);
 builder.Services.AddAppHealthChecks();
 builder.Services.AddIdentityServices(builder.Configuration);
+// Policy for admin-only endpoints
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Admin"));
+});
 builder.Services.AddAppRateLimiting();
 builder.Services.AddRequestTimeouts();
 
