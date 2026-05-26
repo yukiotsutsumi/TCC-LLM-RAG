@@ -42,6 +42,15 @@ public class AuthService(
             return new AuthResponse(false, $"Erro ao criar usuário: {errors}");
         }
 
+        var roleResult = await userManager.AddToRoleAsync(user, "User");
+        if (!roleResult.Succeeded)
+        {
+            await userManager.DeleteAsync(user);
+
+            var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+            return new AuthResponse(false, $"Usuário criado, mas houve erro ao vincular a role padrão: {errors}");
+        }
+
         return new AuthResponse(true, "Usuário registrado com sucesso.");
     }
 

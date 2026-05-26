@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Caching.Memory;
 using Rag.App.Auth;
@@ -98,23 +99,29 @@ builder.Services.AddScoped<IAuthService>(sp =>
     ));
 
 builder.Services.AddScoped<IRagService>(sp => new RagServiceClient(
-        sp.GetRequiredService<IHttpClientFactory>().CreateClient("RagApi"),
-        sp.GetRequiredService<JsonSerializerOptions>(),
-        sp.GetRequiredService<IHttpContextAccessor>()
-    ));
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("RagApi"),
+    sp.GetRequiredService<JsonSerializerOptions>(),
+    sp.GetRequiredService<IHttpContextAccessor>(),
+    sp.GetRequiredService<CustomAuthStateProvider>(),
+    sp.GetRequiredService<NavigationManager>()
+));
 
 builder.Services.AddScoped<IIngestionService>(sp =>
     new IngestionServiceClient(
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("RagApi"),
         sp.GetRequiredService<JsonSerializerOptions>(),
-        sp.GetRequiredService<IHttpContextAccessor>()
+        sp.GetRequiredService<IHttpContextAccessor>(),
+        sp.GetRequiredService<CustomAuthStateProvider>(),
+        sp.GetRequiredService<NavigationManager>()
     ));
 
 builder.Services.AddScoped<IngestionServiceClient>(sp =>
     new IngestionServiceClient(
         sp.GetRequiredService<IHttpClientFactory>().CreateClient("RagApi"),
         sp.GetRequiredService<JsonSerializerOptions>(),
-        sp.GetRequiredService<IHttpContextAccessor>()
+        sp.GetRequiredService<IHttpContextAccessor>(),
+        sp.GetRequiredService<CustomAuthStateProvider>(),
+        sp.GetRequiredService<NavigationManager>()
     ));
 
 var app = builder.Build();

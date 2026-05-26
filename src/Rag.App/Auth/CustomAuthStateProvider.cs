@@ -12,16 +12,12 @@ public class CustomAuthStateProvider(
 
     public override Task<AuthenticationState> GetAuthenticationStateAsync()
     {
-        // HttpContext is only available during the initial HTTP request.
-        // In Blazor Server interactive mode it becomes null after the circuit
-        // is established, so we cache the principal on first successful read.
         try
         {
             var user = httpContextAccessor.HttpContext?.User;
             if (user?.Identity?.IsAuthenticated == true)
             {
                 _cachedUser = user;
-                logger.LogDebug("Auth state: autenticado como {Name}", user.Identity.Name);
             }
         }
         catch (Exception ex)

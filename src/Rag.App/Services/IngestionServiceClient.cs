@@ -1,21 +1,22 @@
-using Microsoft.AspNetCore.Http;
-using Rag.Core.Domain.DTOs.Documents;
+using Microsoft.AspNetCore.Components;
+using Rag.App.Auth;
 using Rag.Core.Domain.DTOs.Documents.Response;
 using Rag.Core.Domain.DTOs.Ingest.Requests;
 using Rag.Core.Domain.DTOs.Ingest.Responses;
 using Rag.Core.Interfaces.Services;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
 
 namespace Rag.App.Services;
 
-// No App, o cliente precisa de todos os métodos pois chama a API via HTTP
-// A interface é estendida apenas no lado do cliente
 public class IngestionServiceClient(
     HttpClient httpClient,
     JsonSerializerOptions jsonOptions,
-    IHttpContextAccessor httpContextAccessor) : IIngestionService
+    IHttpContextAccessor httpContextAccessor,
+    CustomAuthStateProvider authStateProvider,
+    NavigationManager nav) : IIngestionService
 {
     public async Task<IngestTextResponse> IngestTextAsync(
         IngestTextRequest request,
@@ -25,22 +26,26 @@ public class IngestionServiceClient(
         {
             Content = JsonContent.Create(request, options: jsonOptions)
         };
+
         AddBearerToken(req);
+
         var response = await httpClient.SendAsync(req, ct);
+        await HandleUnauthorizedAsync(response);
         response.EnsureSuccessStatusCode();
+
         return await response.Content.ReadFromJsonAsync<IngestTextResponse>(jsonOptions, ct)
                ?? throw new InvalidOperationException("Resposta inválida da API.");
     }
-
-    // ── Métodos extras — não fazem parte da IIngestionService
-    // mas são usados diretamente pelo Ingest.razor via cast ou injeção separada
 
     public async Task<IReadOnlyList<DocumentDto>> GetDocumentsAsync(CancellationToken ct = default)
     {
         var req = new HttpRequestMessage(HttpMethod.Get, "api/documents");
         AddBearerToken(req);
+
         var response = await httpClient.SendAsync(req, ct);
+        await HandleUnauthorizedAsync(response);
         response.EnsureSuccessStatusCode();
+
         return await response.Content.ReadFromJsonAsync<List<DocumentDto>>(jsonOptions, ct) ?? [];
     }
 
@@ -48,8 +53,13 @@ public class IngestionServiceClient(
     {
         var req = new HttpRequestMessage(HttpMethod.Get, $"api/documents/{id}");
         AddBearerToken(req);
+
         var response = await httpClient.SendAsync(req, ct);
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        await HandleUnauthorizedAsync(response);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return null;
+
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<DocumentDto>(jsonOptions, ct);
     }
@@ -58,7 +68,10 @@ public class IngestionServiceClient(
     {
         var req = new HttpRequestMessage(HttpMethod.Delete, $"api/documents/{id}");
         AddBearerToken(req);
+
         var response = await httpClient.SendAsync(req, ct);
+        await HandleUnauthorizedAsync(response);
+
         return response.IsSuccessStatusCode;
     }
 
@@ -66,8 +79,11 @@ public class IngestionServiceClient(
     {
         var req = new HttpRequestMessage(HttpMethod.Get, "api/documents/stats");
         AddBearerToken(req);
+
         var response = await httpClient.SendAsync(req, ct);
+        await HandleUnauthorizedAsync(response);
         response.EnsureSuccessStatusCode();
+
         return await response.Content.ReadFromJsonAsync<DocumentStatsDto>(jsonOptions, ct)
                ?? new DocumentStatsDto(0, 0);
     }
@@ -79,7 +95,7 @@ public class IngestionServiceClient(
         string? source,
         CancellationToken ct = default)
     {
-        using var content       = new MultipartFormDataContent();
+        using var content = new MultipartFormDataContent();
         using var streamContent = new StreamContent(fileStream);
 
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
@@ -87,14 +103,16 @@ public class IngestionServiceClient(
             ext == ".pdf" ? "application/pdf" : "text/plain");
 
         content.Add(streamContent, "file", fileName);
-        if (!string.IsNullOrEmpty(title))  content.Add(new StringContent(title),  "title");
+        if (!string.IsNullOrEmpty(title)) content.Add(new StringContent(title), "title");
         if (!string.IsNullOrEmpty(source)) content.Add(new StringContent(source), "source");
 
         var req = new HttpRequestMessage(HttpMethod.Post, "api/upload") { Content = content };
         AddBearerToken(req);
 
         var response = await httpClient.SendAsync(req, ct);
+        await HandleUnauthorizedAsync(response);
         response.EnsureSuccessStatusCode();
+
         return await response.Content.ReadFromJsonAsync<IngestTextResponse>(jsonOptions, ct)
                ?? throw new InvalidOperationException("Resposta inválida da API.");
     }
@@ -103,8 +121,21 @@ public class IngestionServiceClient(
     {
         var req = new HttpRequestMessage(HttpMethod.Put, $"api/documents/{id}/access-level?level={level}");
         AddBearerToken(req);
+
         var response = await httpClient.SendAsync(req, ct);
+        await HandleUnauthorizedAsync(response);
+
         return response.IsSuccessStatusCode;
+    }
+
+    private async Task HandleUnauthorizedAsync(HttpResponseMessage response)
+    {
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            authStateProvider.MarkUserAsLoggedOut();
+            await Task.Yield();
+            nav.NavigateTo("/login", forceLoad: true);
+        }
     }
 
     private void AddBearerToken(HttpRequestMessage request)

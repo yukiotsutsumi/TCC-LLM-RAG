@@ -28,54 +28,21 @@
     }
     else
     {
-        @* Header *@
-        <div class="ingest-header">
-            <div class="d-flex align-items-center gap-3">
+        <div class="detail-header">
+            <div class="d-flex align-items-start gap-3">
                 <button class="btn btn-ghost btn-sm" @onclick="GoBack">
                     <i class="bi bi-arrow-left"></i>
                 </button>
-                <div>
-                    <h1 class="ingest-title mb-0">@_doc.Title</h1>
 
-                    @* Origem do documento *@
-                    @if (!string.IsNullOrEmpty(_doc.Source)
-                         && _doc.Source != "upload"
-                         && _doc.Source != "local")
-                    {
-                        @if (_doc.Source.StartsWith("http"))
-                        {
-                            <a href="@_doc.Source" target="_blank" class="ingest-subtitle"
-                               style="font-size:0.8rem;">
-                                @_doc.Source
-                                <i class="bi bi-box-arrow-up-right ms-1"></i>
-                            </a>
-                        }
-                        else
-                        {
-                            <p class="ingest-subtitle mb-0" style="font-size:0.8rem;">
-                                @_doc.Source
-                            </p>
-                        }
-                    }
-                    else
-                    {
-                        <p class="ingest-subtitle mb-0" style="font-size:0.8rem;">
-                            <i class="bi bi-hdd me-1"></i>Arquivo local
-                        </p>
-                    }
+                <div>
+                    <h1 class="ingest-title mb-1">@_doc.Title</h1>
+                    <p class="ingest-subtitle mb-0">
+                        Documento indexado na base da aplicação
+                    </p>
                 </div>
             </div>
+
             <div class="d-flex gap-2">
-                <a class="btn btn-primary btn-sm" href="/chat">
-                    <i class="bi bi-chat-dots me-1"></i>Usar no chat
-                </a>
-                <div>
-                    <select class="form-select form-select-sm me-2" @onchange="ChangeAccessLevel">
-                        <option value="0" selected="@(( _doc?.AccessLevel ?? Rag.Core.Domain.Enums.DocumentAccessLevel.User) == Rag.Core.Domain.Enums.DocumentAccessLevel.Public)">Público</option>
-                        <option value="1" selected="@(( _doc?.AccessLevel ?? Rag.Core.Domain.Enums.DocumentAccessLevel.User) == Rag.Core.Domain.Enums.DocumentAccessLevel.User)">Usuário</option>
-                        <option value="2" selected="@(( _doc?.AccessLevel ?? Rag.Core.Domain.Enums.DocumentAccessLevel.User) == Rag.Core.Domain.Enums.DocumentAccessLevel.Admin)">Admin</option>
-                    </select>
-                </div>
                 <button class="btn btn-danger btn-sm @(_isDeleting ? "is-loading" : "")"
                         @onclick="ConfirmDelete"
                         disabled="@_isDeleting">
@@ -84,27 +51,87 @@
             </div>
         </div>
 
-        @* Info cards *@
-        <div class="stats-row">
-            <div class="stat-card slide-up stagger-1">
-                <div class="stat-label">Status</div>
-                <div class="stat-value" style="font-size:1.1rem;">
-                    <span class="badge @(_doc!.Status == "ready" ? "badge-ready" : "badge-processing")">
-                        @(_doc!.Status == "ready" ? "Pronto" : "Processando")
-                    </span>
+        <div class="detail-grid">
+            <div class="detail-main">
+                <div class="card detail-card slide-up stagger-1">
+                    <div class="card-header">Resumo do documento</div>
+                    <div class="card-body">
+                        <div class="detail-info-grid">
+                            <div class="detail-info-item">
+                                <div class="detail-info-label">Título</div>
+                                <div class="detail-info-value">@_doc.Title</div>
+                            </div>
+
+                            <div class="detail-info-item">
+                                <div class="detail-info-label">Status</div>
+                                <div class="detail-info-value">
+                                    <span class="badge @(_doc.Status == "ready" ? "badge-ready" : "badge-processing")">
+                                        @(_doc.Status == "ready" ? "Pronto" : "Processando")
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="detail-info-item">
+                                <div class="detail-info-label">Indexado em</div>
+                                <div class="detail-info-value">
+                                    @_doc.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card detail-card slide-up stagger-2">
+                    <div class="card-header">Observações</div>
+                    <div class="card-body">
+                        <p class="mb-0" style="color: #cbd5e1; line-height: 1.7;">
+                            O nível de acesso definido para este documento influencia diretamente
+                            sua elegibilidade na etapa de recuperação do pipeline RAG. Documentos
+                            mais restritos deixam de compor o contexto para usuários sem permissão
+                            compatível.
+                        </p>
+                    </div>
                 </div>
             </div>
-            <div class="stat-card slide-up stagger-2">
-                <div class="stat-label">Chunks</div>
-                <div class="stat-value">@_doc!.ChunkCount</div>
-                <div class="stat-sub">fragmentos indexados</div>
-            </div>
-            <div class="stat-card slide-up stagger-3">
-                <div class="stat-label">Indexado em</div>
-                <div class="stat-value" style="font-size:1rem;">
-                    @_doc!.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")
+
+            <div class="detail-side">
+                <div class="card detail-card slide-up stagger-2">
+                    <div class="card-header">Controle de acesso</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="detail-info-label mb-2">Nível atual</div>
+                            <span class="@GetAccessLevelBadgeClass(_doc.AccessLevel)">
+                                @GetAccessLevelLabel(_doc.AccessLevel)
+                            </span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Alterar nível de acesso</label>
+                            <select class="form-select" @bind="_selectedAccessLevel">
+                                <option value="@Rag.Core.Domain.Enums.DocumentAccessLevel.Public">Público</option>
+                                <option value="@Rag.Core.Domain.Enums.DocumentAccessLevel.User">Usuário</option>
+                                <option value="@Rag.Core.Domain.Enums.DocumentAccessLevel.Admin">Admin</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-primary w-100"
+                                @onclick="SaveAccessLevelAsync"
+                                disabled="@_isSavingAccess">
+                            @(_isSavingAccess ? "Salvando..." : "Salvar alteração")
+                        </button>
+                    </div>
                 </div>
-                <div class="stat-sub">@_doc!.CreatedAt.ToLocalTime().ToString("HH:mm")</div>
+
+                <div class="card detail-card slide-up stagger-3">
+                    <div class="card-header">Estatísticas</div>
+                    <div class="card-body">
+                        <div class="stat-card compact-stat">
+                            <div class="stat-label">Chunks</div>
+                            <div class="stat-value">@_doc.ChunkCount</div>
+                            <div class="stat-sub">fragmentos indexados</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -117,7 +144,6 @@
     }
 </div>
 
-@* Modal de confirmação de delete *@
 @if (_showDeleteModal && _doc != null)
 {
     <div class="modal-backdrop-custom" @onclick="CancelDelete"></div>
@@ -150,17 +176,21 @@
     [Parameter] public Guid Id { get; set; }
 
     private DocumentDto? _doc;
-    private bool _isLoading       = true;
-    private bool _isDeleting      = false;
+    private bool _isLoading = true;
+    private bool _isDeleting = false;
     private bool _showDeleteModal = false;
+    private bool _isSavingAccess = false;
     private string? _message;
     private bool _isError;
+    private Rag.Core.Domain.Enums.DocumentAccessLevel _selectedAccessLevel;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             _doc = await IngestionService.GetDocumentAsync(Id);
+            if (_doc != null)
+                _selectedAccessLevel = _doc.AccessLevel;
         }
         catch (Exception ex)
         {
@@ -176,7 +206,7 @@
     private void GoBack() => Nav.NavigateTo("/ingest");
 
     private void ConfirmDelete() => _showDeleteModal = true;
-    private void CancelDelete()  => _showDeleteModal = false;
+    private void CancelDelete() => _showDeleteModal = false;
 
     private async Task DoDelete()
     {
@@ -200,24 +230,27 @@
         }
         finally
         {
-            _isDeleting      = false;
+            _isDeleting = false;
             _showDeleteModal = false;
         }
     }
 
-    private async Task ChangeAccessLevel(ChangeEventArgs e)
+    private async Task SaveAccessLevelAsync()
     {
         if (_doc == null) return;
-        if (e?.Value == null) return;
-        if (!int.TryParse(e.Value.ToString(), out var val)) return;
 
-        var level = (Rag.Core.Domain.Enums.DocumentAccessLevel)val;
+        _isSavingAccess = true;
+        _message = null;
+
         try
         {
-            var ok = await IngestionService.UpdateDocumentAccessLevelAsync(_doc.Id, level);
+            var ok = await IngestionService.UpdateDocumentAccessLevelAsync(_doc.Id, _selectedAccessLevel);
             if (ok)
             {
                 _doc = await IngestionService.GetDocumentAsync(_doc.Id);
+                if (_doc != null)
+                    _selectedAccessLevel = _doc.AccessLevel;
+
                 _message = "Nível de acesso atualizado.";
                 _isError = false;
             }
@@ -232,5 +265,25 @@
             _message = $"Erro ao atualizar nível: {ex.Message}";
             _isError = true;
         }
+        finally
+        {
+            _isSavingAccess = false;
+        }
     }
+
+    private static string GetAccessLevelLabel(Rag.Core.Domain.Enums.DocumentAccessLevel level) => level switch
+    {
+        Rag.Core.Domain.Enums.DocumentAccessLevel.Public => "Público",
+        Rag.Core.Domain.Enums.DocumentAccessLevel.User => "Usuário",
+        Rag.Core.Domain.Enums.DocumentAccessLevel.Admin => "Admin",
+        _ => "Desconhecido"
+    };
+
+    private static string GetAccessLevelBadgeClass(Rag.Core.Domain.Enums.DocumentAccessLevel level) => level switch
+    {
+        Rag.Core.Domain.Enums.DocumentAccessLevel.Public => "access-badge access-public",
+        Rag.Core.Domain.Enums.DocumentAccessLevel.User => "access-badge access-user",
+        Rag.Core.Domain.Enums.DocumentAccessLevel.Admin => "access-badge access-admin",
+        _ => "access-badge"
+    };
 }

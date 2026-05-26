@@ -2,17 +2,22 @@
 using Rag.Core.Domain.DTOs.ResponseAI;
 using Rag.Core.Domain.Enums;
 using Rag.Core.Interfaces.Services;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Text.Json;
+using Rag.App.Auth;
+using Microsoft.AspNetCore.Components;
 
 namespace Rag.App.Services;
 
 public class RagServiceClient(
     HttpClient httpClient,
     JsonSerializerOptions jsonOptions,
-    IHttpContextAccessor httpContextAccessor) : IRagService
+    IHttpContextAccessor httpContextAccessor,
+    CustomAuthStateProvider authStateProvider,
+    NavigationManager nav) : IRagService
 {
     public async IAsyncEnumerable<StreamPart> AskStreamAsync(
         AskRequest request,
@@ -31,6 +36,7 @@ public class RagServiceClient(
             HttpCompletionOption.ResponseHeadersRead,
             ct);
 
+        await HandleUnauthorizedAsync(response);
         response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
@@ -57,6 +63,16 @@ public class RagServiceClient(
 
             if (part is not null)
                 yield return part;
+        }
+    }
+
+    private async Task HandleUnauthorizedAsync(HttpResponseMessage response)
+    {
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            authStateProvider.MarkUserAsLoggedOut();
+            await Task.Yield();
+            nav.NavigateTo("/login", forceLoad: true);
         }
     }
 

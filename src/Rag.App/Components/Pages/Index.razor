@@ -1,9 +1,240 @@
 @page "/"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Authorization
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>RAG.chat — Assistente com LLM e RAG</PageTitle>
+
+@if (!_checkedAuth)
+{
+    <div class="page-content">
+        <div class="text-center py-5" style="color: var(--rag-text-muted);">
+            Carregando...
+        </div>
+    </div>
+}
+else if (!_isAuthenticated)
+{
+    <div class="page-content fade-in">
+        <div class="row align-items-center g-5 py-5 py-lg-5">
+            <div class="col-12 col-xl-8 col-xxl-7">
+                <div class="mb-3">
+                    <span class="badge bg-primary px-3 py-2">
+                        LLM + RAG + Segurança da Informação
+                    </span>
+                </div>
+
+                <h1 class="display-4 fw-bold mb-3">
+                    Assistente de chat com
+                    respostas contextualizadas,
+                    rastreáveis e com foco em
+                    segurança
+                </h1>
+
+                <p class="lead mb-4" style="color: var(--rag-text-muted); max-width: 900px;">
+                    Uma prova de conceito voltada à consulta de documentos com
+                    recuperação semântica, controle de acesso, observabilidade e
+                    mecanismos de mitigação contra comportamentos adversariais.
+                </p>
+
+                <div class="row g-3 mt-1">
+                    <div class="col-12 col-md-6">
+                        <div class="stat-card h-100 slide-up stagger-1">
+                            <div class="stat-label">Respostas com contexto</div>
+                            <div class="stat-value fs-4">RAG</div>
+                            <div class="stat-sub">
+                                O sistema recupera trechos relevantes da base documental
+                                antes de gerar a resposta.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <div class="stat-card h-100 slide-up stagger-2">
+                            <div class="stat-label">Controle de acesso</div>
+                            <div class="stat-value fs-4">RBAC</div>
+                            <div class="stat-sub">
+                                A recuperação considera restrições de autorização para
+                                evitar o uso de conteúdo não permitido ao usuário.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <div class="stat-card h-100 slide-up stagger-3">
+                            <div class="stat-label">Observabilidade</div>
+                            <div class="stat-value fs-4">Logs + Métricas</div>
+                            <div class="stat-sub">
+                                A aplicação pode ser acompanhada por métricas, traces e
+                                registros operacionais ao longo do pipeline.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                        <div class="stat-card h-100 slide-up stagger-4">
+                            <div class="stat-label">Execução local</div>
+                            <div class="stat-value fs-4">Ollama</div>
+                            <div class="stat-sub">
+                                O modelo de linguagem é executado localmente, reduzindo a
+                                dependência de serviços externos para inferência.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-xl-4 col-xxl-5">
+                <div class="card slide-up stagger-2">
+                    <div class="card-header">
+                        Visão geral da solução
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-4" style="color: var(--rag-text-muted);">
+                            O fluxo da aplicação foi projetado para combinar utilidade,
+                            rastreabilidade e controles de segurança em consultas sobre
+                            documentos do domínio.
+                        </p>
+
+                        <div class="d-flex flex-column gap-3">
+                            <div class="d-flex gap-3 align-items-start">
+                                <span class="badge bg-primary">1</span>
+                                <div>
+                                    <div class="fw-semibold" style="color: var(--rag-text);">
+                                        Ingestão documental
+                                    </div>
+                                    <div class="small" style="color: var(--rag-text-muted);">
+                                        Arquivos são enviados, processados e segmentados em chunks.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-3 align-items-start">
+                                <span class="badge bg-primary">2</span>
+                                <div>
+                                    <div class="fw-semibold" style="color: var(--rag-text);">
+                                        Geração de embeddings
+                                    </div>
+                                    <div class="small" style="color: var(--rag-text-muted);">
+                                        O conteúdo textual é convertido em representações vetoriais.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-3 align-items-start">
+                                <span class="badge bg-primary">3</span>
+                                <div>
+                                    <div class="fw-semibold" style="color: var(--rag-text);">
+                                        Recuperação semântica
+                                    </div>
+                                    <div class="small" style="color: var(--rag-text-muted);">
+                                        A pergunta do usuário é comparada com a base para localizar
+                                        os trechos mais relevantes.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-3 align-items-start">
+                                <span class="badge bg-primary">4</span>
+                                <div>
+                                    <div class="fw-semibold" style="color: var(--rag-text);">
+                                        Filtragem e contexto
+                                    </div>
+                                    <div class="small" style="color: var(--rag-text-muted);">
+                                        O sistema aplica threshold e restrições de acesso antes de
+                                        montar o contexto enviado ao modelo.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-3 align-items-start">
+                                <span class="badge bg-primary">5</span>
+                                <div>
+                                    <div class="fw-semibold" style="color: var(--rag-text);">
+                                        Geração da resposta
+                                    </div>
+                                    <div class="small" style="color: var(--rag-text-muted);">
+                                        O modelo local responde com base no contexto recuperado ou
+                                        aciona recusa controlada quando não há suporte suficiente.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info mt-4 mb-0">
+                            Acesse pelo menu superior para entrar ou criar uma conta e utilizar a aplicação.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mt-2">
+            <div class="col-12 col-lg-4">
+                <div class="card h-100 slide-up stagger-1">
+                    <div class="card-header">Por que esta aplicação?</div>
+                    <div class="card-body">
+                        <p class="mb-0" style="color: var(--rag-text-muted);">
+                            O objetivo é explorar como práticas de desenvolvimento seguro
+                            podem ser incorporadas à construção de assistentes baseados em
+                            LLM e RAG, especialmente em cenários de Segurança da Informação.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+                <div class="card h-100 slide-up stagger-2">
+                    <div class="card-header">Controles incorporados</div>
+                    <div class="card-body">
+                        <ul class="mb-0 ps-3" style="color: var(--rag-text-muted);">
+                            <li class="mb-2">Autenticação e autorização por papéis</li>
+                            <li class="mb-2">Proteção de sessão com cookies seguros</li>
+                            <li class="mb-2">Recusa para consultas sem suporte documental</li>
+                            <li class="mb-2">Filtragem de acesso no retrieval</li>
+                            <li>Mitigação de conteúdo adversarial no pipeline</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+                <div class="card h-100 slide-up stagger-3">
+                    <div class="card-header">Base experimental</div>
+                    <div class="card-body">
+                        <p class="mb-0" style="color: var(--rag-text-muted);">
+                            A solução também foi construída como ambiente de experimentação
+                            para testes de desempenho, observabilidade, resiliência e
+                            segurança aplicada a arquiteturas LLM + RAG.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
-    protected override void OnInitialized()
+    private bool _checkedAuth;
+    private bool _isAuthenticated;
+
+    protected override async Task OnInitializedAsync()
     {
-        Nav.NavigateTo("/login", forceLoad: false);
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isAuthenticated = state.User.Identity?.IsAuthenticated == true;
+        _checkedAuth = true;
+
+        if (_isAuthenticated)
+        {
+            try
+            {
+                Nav.NavigateTo("/home", replace: true);
+            }
+            catch (NavigationException)
+            {
+                // Esperado em alguns cenários de navegação inicial do Blazor/SSR.
+            }
+        }
     }
 }

@@ -10,7 +10,6 @@
 
 <div class="ingest-page">
 
-    @* Header da página *@
     <div class="ingest-header">
         <div>
             <h1 class="ingest-title">Documentos</h1>
@@ -21,7 +20,6 @@
         </button>
     </div>
 
-    @* Stats *@
     @if (_stats != null)
     {
         <div class="stats-row">
@@ -47,7 +45,6 @@
         </div>
     }
 
-    @* Lista de documentos *@
     @if (_isLoading)
     {
         <div class="d-flex justify-content-center py-5">
@@ -76,28 +73,15 @@
                     <div class="doc-card-icon">
                         <i class="bi bi-file-earmark-pdf-fill"></i>
                     </div>
+
                     <div class="doc-card-body">
                         <div class="doc-card-title">@doc.Title</div>
 
-                        @* Origem do documento *@
                         @if (!string.IsNullOrEmpty(doc.Source)
                              && doc.Source != "upload"
                              && doc.Source != "local")
                         {
-                            @if (doc.Source.StartsWith("http"))
-                            {
-                                <a href="@doc.Source" target="_blank"
-                                   class="doc-card-source"
-                                   @onclick:stopPropagation="true">
-                                    @doc.Source
-                                    <i class="bi bi-box-arrow-up-right ms-1"
-                                       style="font-size:0.65rem;"></i>
-                                </a>
-                            }
-                            else
-                            {
-                                <div class="doc-card-source">@doc.Source</div>
-                            }
+                            <div class="doc-card-source">@doc.Source</div>
                         }
                         else
                         {
@@ -110,22 +94,21 @@
                             <span class="badge @(doc.Status == "ready" ? "badge-ready" : "badge-processing")">
                                 @(doc.Status == "ready" ? "Pronto" : "Processando")
                             </span>
+
                             <span class="doc-card-chunks">
                                 <i class="bi bi-grid-3x3-gap me-1"></i>@doc.ChunkCount chunks
                             </span>
+
                             <span class="doc-card-date">
                                 @doc.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")
                             </span>
-                            <div class="doc-card-access ms-2">
-                                <label class="form-label visually-hidden">Nível</label>
-                                <select class="form-select form-select-sm" @onclick:stopPropagation="true" @onchange="async e => await ChangeAccessLevel(doc.Id, e)">
-                                    <option value="0" selected="@(doc.AccessLevel == Rag.Core.Domain.Enums.DocumentAccessLevel.Public)">Público</option>
-                                    <option value="1" selected="@(doc.AccessLevel == Rag.Core.Domain.Enums.DocumentAccessLevel.User)">Usuário</option>
-                                    <option value="2" selected="@(doc.AccessLevel == Rag.Core.Domain.Enums.DocumentAccessLevel.Admin)">Admin</option>
-                                </select>
-                            </div>
+
+                            <span class="@GetAccessLevelBadgeClass(doc.AccessLevel)">
+                                @GetAccessLevelLabel(doc.AccessLevel)
+                            </span>
                         </div>
                     </div>
+
                     <button class="doc-card-delete"
                             @onclick:stopPropagation="true"
                             @onclick="() => ConfirmDelete(doc)"
@@ -137,7 +120,6 @@
         </div>
     }
 
-    @* Mensagem de erro *@
     @if (!string.IsNullOrEmpty(_errorMessage))
     {
         <div class="alert alert-danger mt-3 fade-in">
@@ -146,7 +128,6 @@
     }
 </div>
 
-@* Modal de Upload *@
 @if (_showUploadModal)
 {
     <div class="modal-backdrop-custom" @onclick="CloseUploadModal"></div>
@@ -168,40 +149,12 @@
             }
             else
             {
-                @* Toggle de origem *@
-                <div class="mb-3">
-                    <label class="form-label">Origem</label>
-                    <div class="origin-toggle">
-                        <button type="button"
-                                class="origin-btn @(_isLocalFile ? "active" : "")"
-                                @onclick="() => _isLocalFile = true">
-                            <i class="bi bi-hdd me-2"></i>Arquivo local
-                        </button>
-                        <button type="button"
-                                class="origin-btn @(!_isLocalFile ? "active" : "")"
-                                @onclick="() => _isLocalFile = false">
-                            <i class="bi bi-globe me-2"></i>Site da internet
-                        </button>
-                    </div>
-                </div>
-
                 <div class="mb-3">
                     <label class="form-label">Título</label>
                     <input class="form-control"
                            @bind="_uploadTitle"
                            placeholder="Nome do documento" />
                 </div>
-
-                @* URL só aparece se for site *@
-                @if (!_isLocalFile)
-                {
-                    <div class="mb-3">
-                        <label class="form-label">URL da fonte</label>
-                        <input class="form-control"
-                               @bind="_uploadSource"
-                               placeholder="https://..." />
-                    </div>
-                }
 
                 <div class="mb-3">
                     <label class="form-label">Arquivo</label>
@@ -282,7 +235,6 @@
     </div>
 }
 
-@* Modal de confirmação de delete *@
 @if (_docToDelete != null)
 {
     <div class="modal-backdrop-custom" @onclick="CancelDelete"></div>
@@ -317,38 +269,34 @@
     private bool _isLoading = true;
     private string? _errorMessage;
 
-    // Upload modal
-    private bool   _showUploadModal = false;
-    private bool   _isLocalFile     = true; // padrão: arquivo local
-    private string _uploadTitle     = "";
-    private string _uploadSource    = "";
-    private bool   _isDragging      = false;
-    private bool   _isUploading     = false;
-    private bool   _uploadSuccess   = false;
-    private int    _uploadProgress  = 0;
+    private bool _showUploadModal = false;
+    private string _uploadTitle = "";
+    private bool _isDragging = false;
+    private bool _isUploading = false;
+    private bool _uploadSuccess = false;
+    private int _uploadProgress = 0;
     private string? _uploadError;
     private string? _fileError;
     private IBrowserFile? _selectedFile;
 
-    // Delete modal
     private DocumentDto? _docToDelete;
     private bool _isDeleting = false;
 
-    private const long MaxFileSizeBytes = 20 * 1024 * 1024; // 20MB
+    private const long MaxFileSizeBytes = 20 * 1024 * 1024;
 
     protected override async Task OnInitializedAsync() => await LoadData();
 
     private async Task LoadData()
     {
-        _isLoading    = true;
+        _isLoading = true;
         _errorMessage = null;
         try
         {
-            var docsTask  = IngestionService.GetDocumentsAsync();
+            var docsTask = IngestionService.GetDocumentsAsync();
             var statsTask = IngestionService.GetStatsAsync();
             await Task.WhenAll(docsTask, statsTask);
             _documents = (await docsTask).ToList();
-            _stats     = await statsTask;
+            _stats = await statsTask;
         }
         catch (Exception ex)
         {
@@ -362,14 +310,12 @@
 
     private void OpenUploadModal()
     {
-        _isLocalFile    = true;
-        _uploadTitle    = "";
-        _uploadSource   = "";
-        _selectedFile   = null;
-        _uploadError    = null;
-        _fileError      = null;
-        _uploadSuccess  = false;
-        _isUploading    = false;
+        _uploadTitle = "";
+        _selectedFile = null;
+        _uploadError = null;
+        _fileError = null;
+        _uploadSuccess = false;
+        _isUploading = false;
         _uploadProgress = 0;
         _showUploadModal = true;
     }
@@ -384,7 +330,7 @@
 
     private void HandleFileSelected(InputFileChangeEventArgs e)
     {
-        _fileError    = null;
+        _fileError = null;
         _selectedFile = null;
         var file = e.File;
 
@@ -410,12 +356,10 @@
     private async Task DoUpload()
     {
         if (_selectedFile == null) return;
+        var source = "upload";
 
-        // Fonte determinada pela flag — "local" para arquivos do PC
-        var source = _isLocalFile ? "local" : _uploadSource;
-
-        _isUploading    = true;
-        _uploadError    = null;
+        _isUploading = true;
+        _uploadError = null;
         _uploadProgress = 10;
         StateHasChanged();
 
@@ -436,7 +380,7 @@
                 source);
 
             _uploadProgress = 100;
-            _uploadSuccess  = true;
+            _uploadSuccess = true;
         }
         catch (Exception ex)
         {
@@ -450,7 +394,7 @@
     }
 
     private void ConfirmDelete(DocumentDto doc) => _docToDelete = doc;
-    private void CancelDelete()                 => _docToDelete = null;
+    private void CancelDelete() => _docToDelete = null;
 
     private async Task DoDelete()
     {
@@ -476,7 +420,7 @@
         }
         finally
         {
-            _isDeleting  = false;
+            _isDeleting = false;
             _docToDelete = null;
         }
     }
@@ -484,23 +428,19 @@
     private void GoToDetails(Guid id) =>
         Nav.NavigateTo($"/ingest/{id}");
 
-    private async Task ChangeAccessLevel(Guid id, ChangeEventArgs e)
+    private static string GetAccessLevelLabel(Rag.Core.Domain.Enums.DocumentAccessLevel level) => level switch
     {
-        if (e?.Value == null) return;
-        if (!int.TryParse(e.Value.ToString(), out var val)) return;
+        Rag.Core.Domain.Enums.DocumentAccessLevel.Public => "Público",
+        Rag.Core.Domain.Enums.DocumentAccessLevel.User => "Usuário",
+        Rag.Core.Domain.Enums.DocumentAccessLevel.Admin => "Admin",
+        _ => "Desconhecido"
+    };
 
-        var level = (Rag.Core.Domain.Enums.DocumentAccessLevel)val;
-        try
-        {
-            var ok = await IngestionService.UpdateDocumentAccessLevelAsync(id, level);
-            if (ok)
-                await LoadData();
-            else
-                _errorMessage = "Não foi possível atualizar o nível de acesso.";
-        }
-        catch (Exception ex)
-        {
-            _errorMessage = $"Erro ao atualizar nível: {ex.Message}";
-        }
-    }
+    private static string GetAccessLevelBadgeClass(Rag.Core.Domain.Enums.DocumentAccessLevel level) => level switch
+    {
+        Rag.Core.Domain.Enums.DocumentAccessLevel.Public => "access-badge access-public",
+        Rag.Core.Domain.Enums.DocumentAccessLevel.User => "access-badge access-user",
+        Rag.Core.Domain.Enums.DocumentAccessLevel.Admin => "access-badge access-admin",
+        _ => "access-badge"
+    };
 }

@@ -1,6 +1,5 @@
-/* ── Page layout ────────────────────────────────────────────── */
 .ingest-page {
-    max-width: 1100px;
+    max-width: 1180px;
     margin: 0 auto;
 }
 
@@ -21,13 +20,6 @@
     margin-bottom: 0.25rem;
 }
 
-.ingest-subtitle {
-    font-size: 0.82rem;
-    color: var(--rag-text-muted);
-    text-decoration: none;
-}
-
-/* ── Stats row ──────────────────────────────────────────────── */
 .stats-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -35,7 +27,6 @@
     margin-bottom: 2rem;
 }
 
-/* ── Empty state ────────────────────────────────────────────── */
 .ingest-empty {
     display: flex;
     flex-direction: column;
@@ -47,27 +38,26 @@
     gap: 0.75rem;
 }
 
-.ingest-empty i {
-    font-size: 3rem;
-    opacity: 0.25;
-}
+    .ingest-empty i {
+        font-size: 3rem;
+        opacity: 0.25;
+    }
 
-.ingest-empty h5 {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--rag-text);
-    margin: 0;
-}
+    .ingest-empty h5 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--rag-text);
+        margin: 0;
+    }
 
-.ingest-empty p {
-    font-size: 0.85rem;
-    margin: 0;
-}
+    .ingest-empty p {
+        font-size: 0.85rem;
+        margin: 0;
+    }
 
-/* ── Document grid ──────────────────────────────────────────── */
 .doc-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 1rem;
 }
 
@@ -84,11 +74,11 @@
     position: relative;
 }
 
-.doc-card:hover {
-    border-color: var(--rag-border-light);
-    box-shadow: 0 4px 20px rgba(99,102,241,0.08);
-    transform: translateY(-1px);
-}
+    .doc-card:hover {
+        border-color: var(--rag-border-light);
+        box-shadow: 0 4px 20px rgba(99,102,241,0.08);
+        transform: translateY(-1px);
+    }
 
 .doc-card-icon {
     width: 40px;
@@ -110,29 +100,29 @@
 
 .doc-card-title {
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.92rem;
     color: var(--rag-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.35rem;
+    padding-right: 2rem;
 }
 
-.doc-card-source a,
-a.doc-card-source {
+.doc-card-source {
     display: block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
     color: var(--rag-text-muted);
-    text-decoration: none;
+    font-size: 0.78rem;
+    margin-bottom: 0.75rem;
 }
 
-    a.doc-card-source:hover {
-        color: var(--rag-accent);
-        text-decoration: underline;
-    }
+.doc-card-local {
+    color: var(--rag-text-muted);
+}
 
 .doc-card-meta {
     display: flex;
@@ -171,7 +161,6 @@ a.doc-card-source {
     color: var(--rag-error);
 }
 
-/* ── Badges ─────────────────────────────────────────────────── */
 .badge-ready {
     background: rgba(52,211,153,0.12);
     color: var(--rag-success);
@@ -190,7 +179,101 @@ a.doc-card-source {
     font-weight: 500;
 }
 
-/* ── Modals ─────────────────────────────────────────────────── */
+.access-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    padding: 0.42rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.08);
+    line-height: 1;
+}
+
+.access-public {
+    color: #cfe7ff;
+    background: rgba(37, 140, 251, 0.12);
+    border-color: rgba(37, 140, 251, 0.28);
+}
+
+.access-user {
+    color: #d8e4ff;
+    background: rgba(99, 102, 241, 0.12);
+    border-color: rgba(99, 102, 241, 0.28);
+}
+
+.access-admin {
+    color: #f6d7ff;
+    background: rgba(168, 85, 247, 0.12);
+    border-color: rgba(168, 85, 247, 0.28);
+}
+
+.detail-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+    gap: 1rem;
+}
+
+.detail-main,
+.detail-side {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.detail-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.detail-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.ingest-subtitle {
+    font-size: 0.86rem;
+    color: #cbd5e1;
+    text-decoration: none;
+}
+
+.detail-info-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #94a3b8;
+}
+
+.detail-info-value {
+    font-size: 0.98rem;
+    color: #e2e8f0;
+    word-break: break-word;
+    font-weight: 500;
+}
+
+.detail-card .card-body p {
+    color: #cbd5e1;
+    line-height: 1.7;
+}
+
+.compact-stat {
+    padding: 1rem 1.1rem;
+}
+
 .modal-custom {
     position: fixed;
     inset: 0;
@@ -204,12 +287,11 @@ a.doc-card-source {
     border-radius: var(--rag-radius-xl);
     box-shadow: var(--rag-shadow-lg);
     z-index: 1055;
-    /* SEM animation aqui — conflita com transform do posicionamento */
 }
 
-.modal-custom.modal-sm {
-    width: min(90vw, 380px);
-}
+    .modal-custom.modal-sm {
+        width: min(90vw, 380px);
+    }
 
 .modal-backdrop-custom {
     position: fixed;
@@ -254,12 +336,11 @@ a.doc-card-source {
     font-size: 0.9rem;
 }
 
-.btn-icon:hover {
-    background: var(--rag-surface-3);
-    color: var(--rag-text);
-}
+    .btn-icon:hover {
+        background: var(--rag-surface-3);
+        color: var(--rag-text);
+    }
 
-/* ── Drop zone ──────────────────────────────────────────────── */
 .drop-zone {
     position: relative;
     border: 2px dashed var(--rag-border);
@@ -271,16 +352,16 @@ a.doc-card-source {
     background: var(--rag-surface-2);
 }
 
-.drop-zone:hover,
-.drop-zone.dragging {
-    border-color: var(--rag-primary);
-    background: var(--rag-primary-dim);
-}
+    .drop-zone:hover,
+    .drop-zone.dragging {
+        border-color: var(--rag-primary);
+        background: var(--rag-primary-dim);
+    }
 
-.drop-zone.has-file {
-    border-color: var(--rag-success);
-    background: rgba(52,211,153,0.06);
-}
+    .drop-zone.has-file {
+        border-color: var(--rag-success);
+        background: rgba(52,211,153,0.06);
+    }
 
 .drop-zone-icon {
     font-size: 2rem;
@@ -301,7 +382,6 @@ a.doc-card-source {
     color: var(--rag-text-muted);
 }
 
-/* ── Upload progress ────────────────────────────────────────── */
 .upload-progress {
     margin-bottom: 1rem;
 }
@@ -314,57 +394,31 @@ a.doc-card-source {
     margin-bottom: 0.4rem;
 }
 
-/* ── btn-danger ─────────────────────────────────────────────── */
 .btn-danger {
     background: var(--rag-error);
     color: #fff;
     border: none;
 }
 
-.btn-danger:hover:not(:disabled) {
-    background: #ef4444;
-    color: #fff;
-    transform: translateY(-1px);
+    .btn-danger:hover:not(:disabled) {
+        background: #ef4444;
+        color: #fff;
+        transform: translateY(-1px);
+    }
+
+@media (max-width: 992px) {
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
-/* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 768px) {
     .doc-grid {
         grid-template-columns: 1fr;
     }
-    .ingest-header {
+
+    .ingest-header,
+    .detail-header {
         flex-direction: column;
     }
 }
-
-/* ── Origin toggle ──────────────────────────────────────────── */
-.origin-toggle {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.origin-btn {
-    flex: 1;
-    padding: 0.6rem 1rem;
-    background: var(--rag-surface-2);
-    border: 1px solid var(--rag-border);
-    border-radius: var(--rag-radius);
-    color: var(--rag-text-muted);
-    font-family: var(--rag-font);
-    font-size: 0.82rem;
-    cursor: pointer;
-    transition: all var(--rag-transition);
-    text-align: center;
-}
-
-    .origin-btn:hover {
-        border-color: var(--rag-border-light);
-        color: var(--rag-text);
-    }
-
-    .origin-btn.active {
-        background: var(--rag-primary-dim);
-        border-color: var(--rag-primary);
-        color: var(--rag-accent);
-        font-weight: 600;
-    }

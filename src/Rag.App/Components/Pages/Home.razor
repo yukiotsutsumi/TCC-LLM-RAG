@@ -1,5 +1,173 @@
 ﻿@page "/home"
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
 @attribute [Authorize]
 
-<h1>Bem-vindo!</h1>
+<PageTitle>Home — RAG.chat</PageTitle>
+
+@if (!_loaded)
+{
+    <div class="page-content">
+        <div class="text-center py-5" style="color: var(--rag-text-muted);">
+            Carregando...
+        </div>
+    </div>
+}
+else
+{
+    <div class="page-content fade-in">
+        <div class="row g-4 py-4">
+            <div class="col-12">
+                <div class="card slide-up">
+                    <div class="card-body">
+                        <div class="stat-label mb-2">Área autenticada</div>
+                        <h1 class="mb-2 fw-bold" style="color: var(--rag-text);">
+                            Bem-vindo, @_userName
+                        </h1>
+                        <p class="mb-0" style="color: var(--rag-text-muted); max-width: 900px;">
+                            Esta é a área inicial do sistema. A partir da navegação superior,
+                            você pode acessar o chat e, no caso de administradores, também a
+                            ingestão documental.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="stat-card h-100 slide-up stagger-1">
+                    <div class="stat-label">Perfil</div>
+                    <div class="stat-value fs-4">@(_isAdmin ? "Admin" : "User")</div>
+                    <div class="stat-sub">
+                        Seu perfil define quais funcionalidades e documentos podem ser utilizados.
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="stat-card h-100 slide-up stagger-2">
+                    <div class="stat-label">Resposta controlada</div>
+                    <div class="stat-value fs-4">Recusa</div>
+                    <div class="stat-sub">
+                        Quando não houver suporte documental suficiente, o sistema pode recusar a resposta.
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="stat-card h-100 slide-up stagger-3">
+                    <div class="stat-label">Base documental</div>
+                    <div class="stat-value fs-4">RAG</div>
+                    <div class="stat-sub">
+                        As respostas dependem da recuperação semântica e das permissões aplicadas ao conteúdo.
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="stat-card h-100 slide-up stagger-4">
+                    <div class="stat-label">Observabilidade</div>
+                    <div class="stat-value fs-4">Logs + Traces</div>
+                    <div class="stat-sub">
+                        O comportamento da aplicação pode ser acompanhado por métricas e registros operacionais.
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-7">
+                <div class="card h-100 slide-up stagger-2">
+                    <div class="card-header">Como utilizar o sistema</div>
+                    <div class="card-body">
+                        <div class="d-flex flex-column gap-3">
+                            <div>
+                                <div class="fw-semibold mb-1" style="color: var(--rag-text);">
+                                    Faça perguntas específicas
+                                </div>
+                                <div style="color: var(--rag-text-muted);">
+                                    Consultas mais objetivas tendem a recuperar contexto mais relevante.
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="fw-semibold mb-1" style="color: var(--rag-text);">
+                                    Considere as fontes apresentadas
+                                </div>
+                                <div style="color: var(--rag-text-muted);">
+                                    Sempre que houver contexto suficiente, a resposta poderá ser associada aos documentos recuperados.
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="fw-semibold mb-1" style="color: var(--rag-text);">
+                                    O acesso depende do seu perfil
+                                </div>
+                                <div style="color: var(--rag-text-muted);">
+                                    A recuperação considera restrições de autorização, o que pode alterar os documentos elegíveis.
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="fw-semibold mb-1" style="color: var(--rag-text);">
+                                    Nem toda pergunta será respondida
+                                </div>
+                                <div style="color: var(--rag-text-muted);">
+                                    Em ausência de suporte documental adequado, o sistema prioriza uma resposta controlada.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-lg-5">
+                <div class="card h-100 slide-up stagger-3">
+                    <div class="card-header">Seu acesso</div>
+                    <div class="card-body">
+                        @if (_isAdmin)
+                        {
+                            <div class="alert alert-success mb-3">
+                                Seu perfil possui permissões administrativas para ingestão e manutenção da base documental.
+                            </div>
+
+                            <p class="mb-0" style="color: var(--rag-text-muted);">
+                                Além do uso do chat, administradores podem acessar a área de ingestão
+                                para enviar e manter documentos utilizados pelo pipeline RAG.
+                            </p>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info mb-3">
+                                Seu perfil está habilitado para consulta ao assistente e uso da base documental disponível ao seu nível de acesso.
+                            </div>
+
+                            <p class="mb-0" style="color: var(--rag-text-muted);">
+                                Usuários do tipo <strong style="color: var(--rag-text);">User</strong>
+                                podem consultar o assistente normalmente, mas não possuem acesso à ingestão de documentos.
+                            </p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loaded;
+    private bool _isAdmin;
+    private string _userName = "usuário";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = state.User;
+
+        _userName =
+            user.FindFirst("fullName")?.Value
+            ?? user.Identity?.Name
+            ?? "usuário";
+
+        _isAdmin = user.IsInRole("Admin");
+        _loaded = true;
+    }
+}

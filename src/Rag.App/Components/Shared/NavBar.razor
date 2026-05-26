@@ -21,7 +21,7 @@
         </button>
 
         <div class="@(_menuOpen ? "collapse navbar-collapse show" : "collapse navbar-collapse")">
-            <AuthorizeView>
+            <AuthorizeView Context="authState">
                 <Authorized>
                     <ul class="navbar-nav mx-auto gap-1">
                         <li class="nav-item">
@@ -30,9 +30,13 @@
                         <li class="nav-item">
                             <a class="nav-link @(IsActive("/chat") ? "active" : "")" href="/chat">Chat</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link @(IsActive("/ingest") ? "active" : "")" href="/ingest">Ingestão</a>
-                        </li>
+
+                        @if (authState.User.IsInRole("Admin"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link @(IsActive("/ingest") ? "active" : "")" href="/ingest">Ingestão</a>
+                            </li>
+                        }
                     </ul>
 
                     <div class="position-relative ms-auto">
