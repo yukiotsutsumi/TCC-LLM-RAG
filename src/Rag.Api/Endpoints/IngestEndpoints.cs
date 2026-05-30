@@ -22,7 +22,6 @@ public static class IngestEndpoints
             return Results.Ok(result);
         }).RequireAuthorization();
 
-        // Upload de arquivo — aceita PDF e TXT
         group.MapPost("/upload", async (
             HttpRequest req,
             IIngestionService ingestion,
@@ -45,7 +44,6 @@ public static class IngestEndpoints
 
             if (ext == ".pdf")
             {
-                // Extrai texto do PDF usando PdfPig
                 using var pdfStream = file.OpenReadStream();
                 using var pdf = UglyToad.PdfPig.PdfDocument.Open(pdfStream);
                 var pages = pdf.GetPages()

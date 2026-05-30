@@ -12,7 +12,6 @@ public static class EnvironmentExtensions
 
     public static void ApplyContainerOverrides(this IConfigurationBuilder builder)
     {
-        // sobrecarga para ser chamado como método de extensão no program.cs
     }
 
     public static void ApplyContainerOverrides(this IConfiguration configuration, IHostEnvironment env)

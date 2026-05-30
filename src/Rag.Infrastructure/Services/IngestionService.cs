@@ -27,7 +27,6 @@ public class IngestionService(
         };
         await docs.InsertAsync(doc);
 
-        // Audit: record ingest action
         var audit = new Rag.Core.Domain.Entities.DocumentAuditLog
         {
             DocumentId = doc.Id,

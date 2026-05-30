@@ -21,7 +21,7 @@
 
 <div class="chat-container">
 
-    @* Aviso de conversa longa *@
+    
     @if (_messages.Count(m => !m.IsUser) >= LongConversationThreshold)
     {
         <div class="chat-long-warning">
@@ -32,7 +32,7 @@
         </div>
     }
 
-    @* Header *@
+    
     <div class="chat-header">
         <i class="bi bi-robot me-2"></i>
         <span>Assistente IA</span>
@@ -75,10 +75,10 @@
         </div>
     }
 
-    @* Mensagens *@
+    
     <div class="chat-messages" id="chatWindow">
 
-        @* Estado vazio *@
+        
         @if (!_messages.Any())
         {
             <div class="chat-empty">
@@ -121,7 +121,7 @@
                         </div>
                     }
 
-                    @* Fontes dentro da bolha *@
+                    
                     @if (!msg.IsStreaming && msg.Sources?.Any() == true)
                     {
                         <div class="message-sources">
@@ -148,7 +148,7 @@
         }
     </div>
 
-    @* Status *@
+    
     @if (!string.IsNullOrWhiteSpace(status) && status != "Concluído")
     {
         <div class="chat-status">
@@ -156,7 +156,7 @@
         </div>
     }
 
-    @* Input *@
+    
     <div class="chat-input-area">
         <div class="input-wrapper">
             <textarea class="chat-textarea"
@@ -197,8 +197,8 @@
     private string? _exportToken;
 
     private const int RenderIntervalMs = 50;
-    private const int MaxHistoryTurns = 5;        // trocas enviadas para a IA
-    private const int LongConversationThreshold = 5; // respostas até mostrar aviso
+    private const int MaxHistoryTurns = 5;
+    private const int LongConversationThreshold = 5;
     private DateTime _lastRender = DateTime.MinValue;
 
     private class ChatMessage
@@ -240,8 +240,6 @@
 
     private List<HistoryMessage> BuildHistory()
     {
-        // Pega as últimas MaxHistoryTurns trocas completas (user + assistant)
-        // Exclui a última mensagem do assistente se ainda estiver streamando
         return _messages
             .Where(m => !m.IsStreaming)
             .TakeLast(MaxHistoryTurns * 2)
@@ -473,7 +471,7 @@
                 toastMsg = null;
                 await InvokeAsync(StateHasChanged);
             }
-            catch { /* cancelado */ }
+            catch { }
         });
     }
 

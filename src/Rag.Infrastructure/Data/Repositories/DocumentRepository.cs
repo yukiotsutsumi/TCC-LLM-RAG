@@ -34,7 +34,6 @@ public class DocumentRepository(AppDbContext db, ILogger<DocumentRepository> log
 
         if (doc is null) return false;
 
-        // Create audit entry before deletion
         var audit = new Rag.Core.Domain.Entities.DocumentAuditLog
         {
             DocumentId = doc.Id,
@@ -46,7 +45,7 @@ public class DocumentRepository(AppDbContext db, ILogger<DocumentRepository> log
 
         await db.DocumentAuditLogs.AddAsync(audit, ct);
 
-        db.Documents.Remove(doc); // cascade deleta os chunks
+        db.Documents.Remove(doc);
         await db.SaveChangesAsync(ct);
         return true;
     }

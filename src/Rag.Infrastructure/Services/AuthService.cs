@@ -76,9 +76,6 @@ public class AuthService(
         if (stored == null)
             return new AuthResponse(false, "Refresh token inválido.");
 
-        // ⚠️ REUSE DETECTION
-        // Token já foi revogado → alguém está tentando reutilizar
-        // Invalida TODA a família de tokens (possível roubo de token)
         if (stored.IsRevoked)
         {
             await refreshTokenRepo.RevokeAllByFamilyAsync(
